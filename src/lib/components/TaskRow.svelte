@@ -1,0 +1,460 @@
+<script>
+	import { onDestroy, onMount, tick } from 'svelte';
+	import {
+		buildHighlightedDateHtml,
+		detectActionDate,
+		formatDetectedDate,
+		isCursorInsideMatch,
+		stripDetectedDateText
+	} from '$lib/dateDetection';
+	import {
+		closeTaskActions,
+		hoveredTaskId,
+		moveTaskForward,
+		openTaskActions,
+		pauseTask,
+		removeTask,
+		resumeTask,
+		scheduleTaskActionsClose,
+		toggleTask,
+		updateTask
+	} from '$lib/tasks';
+
+	export let task;
+
+	let editing = false;
+	let pauseModalOpen = false;
+	let dueDateModalOpen = false;
+	let pauseReasonDraft = '';
+	let dueDateDraft = '';
+	let draftTitle = '';
+	let titleInput;
+	let actionsOpen = false;
+	let editDismissedPhrase = '';
+	let skipEditBlurSave = false;
+	let dueDateMenuOpen = false;
+	let dueDateMenuCloseTimer;
+	let taskLineElement;
+
+	$: if (!editing) {
+		draftTitle = task.title;
+	}
+
+	$: if (!pauseModalOpen) {
+		pauseReasonDraft = task.pauseReason || '';
+	}
+
+	$: if (!dueDateModalOpen) {
+		dueDateDraft = task.dueDate || '';
+	}
+
+	$: actionsOpen = $hoveredTaskId === task.id || editing;
+	$: hasPauseReason = Boolean(task.pauseReason?.trim());
+	$: rawEditDateMatch = detectActionDate(draftTitle);
+	$: editDateMatch =
+		rawEditDateMatch && rawEditDateMatch.phrase.toLowerCase() === editDismissedPhrase ? null : rawEditDateMatch;
+	$: editDatePreview = buildHighlightedDateHtml(draftTitle, editDateMatch);
+
+	function energyIcon(energy) {
+		if (energy === 'Focus') return 'fa-bullseye';
+		if (energy === 'Admin') return 'fa-phone-volume';
+		return 'fa-bolt';
+	}
+
+	function saveEdit() {
+		const nextTitle = stripDetectedDateText(draftTitle, editDateMatch);
+		if (!nextTitle) return;
+		skipEditBlurSave = true;
+		updateTask(task.id, {
+			title: nextTitle,
+			dueDate: editDateMatch?.dueDate || ''
+		});
+		editing = false;
+	}
+
+	function cancelEdit() {
+		skipEditBlurSave = true;
+		draftTitle = task.title;
+		editDismissedPhrase = '';
+		editing = false;
+	}
+
+	async function startEditing() {
+		openTaskActions(task.id);
+		editing = true;
+		draftTitle = task.title;
+		editDismissedPhrase = '';
+		skipEditBlurSave = false;
+		await tick();
+		titleInput?.focus();
+	}
+
+	function handleEditKeydown(event) {
+		if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+			event.preventDefault();
+			const textarea = event.currentTarget;
+			const selectionStart = textarea.selectionStart ?? draftTitle.length;
+			const selectionEnd = textarea.selectionEnd ?? selectionStart;
+			draftTitle = `${draftTitle.slice(0, selectionStart)}\n${draftTitle.slice(selectionEnd)}`;
+
+			tick().then(() => {
+				const nextCursor = selectionStart + 1;
+				textarea.selectionStart = nextCursor;
+				textarea.selectionEnd = nextCursor;
+			});
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			const selectionStart = event.currentTarget.selectionStart ?? 0;
+			if (editDateMatch && isCursorInsideMatch(selectionStart, editDateMatch)) {
+				editDismissedPhrase = editDateMatch.phrase.toLowerCase();
+				event.preventDefault();
+				return;
+			}
+
+			saveEdit();
+			event.preventDefault();
+			return;
+		}
+
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			saveEdit();
+		}
+	}
+
+	function handleEditBlur() {
+		if (skipEditBlurSave) {
+			skipEditBlurSave = false;
+			return;
+		}
+
+		saveEdit();
+	}
+
+	function savePause() {
+		pauseTask(task.id, pauseReasonDraft);
+		pauseModalOpen = false;
+	}
+
+	function saveDueDate() {
+		updateTask(task.id, {
+			dueDate: dueDateDraft || ''
+		});
+		closeDueDateMenu();
+		dueDateModalOpen = false;
+	}
+
+	function setRelativeDueDate(offset) {
+		const date = new Date();
+		date.setHours(0, 0, 0, 0);
+		date.setDate(date.getDate() + offset);
+		const nextDueDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+		updateTask(task.id, {
+			dueDate: nextDueDate
+		});
+		closeDueDateMenu();
+	}
+
+	function openDueDateMenu() {
+		if (dueDateMenuCloseTimer) {
+			clearTimeout(dueDateMenuCloseTimer);
+			dueDateMenuCloseTimer = undefined;
+		}
+
+		dueDateMenuOpen = true;
+	}
+
+	function scheduleDueDateMenuClose(delay = 3000) {
+		if (dueDateMenuCloseTimer) {
+			clearTimeout(dueDateMenuCloseTimer);
+		}
+
+		dueDateMenuCloseTimer = setTimeout(() => {
+			dueDateMenuOpen = false;
+			dueDateMenuCloseTimer = undefined;
+		}, delay);
+	}
+
+	function closeDueDateMenu() {
+		if (dueDateMenuCloseTimer) {
+			clearTimeout(dueDateMenuCloseTimer);
+			dueDateMenuCloseTimer = undefined;
+		}
+
+		dueDateMenuOpen = false;
+	}
+
+	function handleTaskMouseLeave() {
+		if (editing) return;
+		scheduleTaskActionsClose(task.id);
+	}
+
+	function handleWindowPointerDown(event) {
+		if (!actionsOpen || editing || pauseModalOpen || dueDateModalOpen) return;
+		if (taskLineElement?.contains(event.target)) return;
+
+		closeDueDateMenu();
+		closeTaskActions(task.id);
+	}
+
+	function handlePauseBackdropKeydown(event) {
+		if (event.target !== event.currentTarget) return;
+		if (['Enter', ' ', 'Escape'].includes(event.key)) {
+			pauseModalOpen = false;
+		}
+	}
+
+	function portal(node) {
+		if (typeof document === 'undefined') {
+			return {
+				destroy() {}
+			};
+		}
+
+		document.body.appendChild(node);
+
+		return {
+			destroy() {
+				node.remove();
+			}
+		};
+	}
+
+	onMount(() => {
+		window.addEventListener('pointerdown', handleWindowPointerDown);
+
+		return () => {
+			window.removeEventListener('pointerdown', handleWindowPointerDown);
+		};
+	});
+
+	onDestroy(() => {
+		if (dueDateMenuCloseTimer) {
+			clearTimeout(dueDateMenuCloseTimer);
+		}
+	});
+</script>
+
+<div
+	bind:this={taskLineElement}
+	class="task-line"
+	role="presentation"
+	style={`opacity: ${task.done ? '0.72' : '1'};`}
+	onmouseenter={() => openTaskActions(task.id)}
+	onmouseleave={handleTaskMouseLeave}
+>
+	{#if editing}
+		<div class="d-flex align-items-start justify-content-between gap-3 py-2 task-row-shell">
+			<div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+				<div class="min-w-0 flex-grow-1">
+					<div class="task-edit-shell">
+						<div class="task-edit-highlight" aria-hidden="true">
+							<div class="task-edit-highlight-copy">
+								{@html editDatePreview}
+							</div>
+						</div>
+						<textarea
+							bind:this={titleInput}
+							class="task-edit-input"
+							bind:value={draftTitle}
+							rows="3"
+							placeholder="Write action here"
+						onkeydown={handleEditKeydown}
+						onblur={handleEditBlur}
+					></textarea>
+					</div>
+					{#if editDateMatch}
+						<div class="soft-text small mt-2">
+							Date detected for {formatDetectedDate(editDateMatch.dueDate)}. Press Escape on the highlighted date to keep it as text.
+						</div>
+					{/if}
+				</div>
+			</div>
+			<div class="d-flex gap-2 flex-shrink-0">
+				<button class="icon-button" type="button" aria-label={`Save ${task.title}`} onclick={saveEdit}><i class="fa-solid fa-check"></i></button>
+				<button class="icon-button" type="button" aria-label={`Cancel editing ${task.title}`} onclick={cancelEdit}><i class="fa-solid fa-xmark"></i></button>
+			</div>
+		</div>
+	{:else}
+		<div class="d-flex align-items-start justify-content-between gap-3 py-2 task-row-shell">
+			<div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+				<div class="min-w-0 flex-grow-1">
+					{#if task.paused}
+						<div class="d-flex flex-wrap align-items-center gap-2">
+							<div class="task-title text-warning">
+								<i class="fa-solid fa-pause me-2"></i>Paused
+							</div>
+						</div>
+						{#if hasPauseReason}
+							<div class="paused-reason mt-1">{task.pauseReason}</div>
+						{:else}
+							<div class={`task-title mt-1 ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
+						{/if}
+					{:else}
+						<div
+							class="d-flex flex-wrap align-items-center gap-2 task-text-line"
+							role="button"
+							tabindex="0"
+							aria-label={`Edit ${task.title}`}
+							onclick={startEditing}
+							onkeydown={(event) => ['Enter', ' '].includes(event.key) && startEditing()}
+						>
+							<div class={`task-title ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
+						</div>
+						{#if task.dueDate}
+							<div class="task-due-note mt-1">
+								<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
+							</div>
+						{/if}
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<div class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`} role="presentation">
+		{#if task.paused}
+			<button
+				class="icon-button"
+				type="button"
+				aria-label={`Resume ${task.title}`}
+				onclick={() => resumeTask(task.id)}
+			>
+				<i class="fa-solid fa-play"></i>
+			</button>
+			<button class="icon-button" type="button" aria-label={`Edit pause reason for ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-comment-dots"></i></button>
+		{:else}
+			<button class="icon-button" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
+			<button class="icon-button" type="button" aria-label={`Pause ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-pause"></i></button>
+			<div
+				class="task-inline-action-group"
+				role="presentation"
+				onmouseenter={openDueDateMenu}
+				onmouseleave={() => scheduleDueDateMenuClose()}
+			>
+				<button
+					class="icon-button"
+					type="button"
+					aria-label={`Set due date for ${task.title}`}
+					onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu())}
+				><i class="fa-regular fa-calendar"></i></button>
+				{#if dueDateMenuOpen}
+					<div class="task-inline-submenu" role="presentation" onmouseenter={openDueDateMenu} onmouseleave={() => scheduleDueDateMenuClose()}>
+						<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
+						<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
+						<button class="task-inline-submenu-button" type="button" onclick={() => {
+							closeDueDateMenu();
+							dueDateModalOpen = true;
+						}}>Later</button>
+					</div>
+				{/if}
+			</div>
+			{#if !editing}
+				<button class="icon-button" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
+			{/if}
+			<button class="icon-button" type="button" aria-label={`Move ${task.title} forward`} onclick={() => moveTaskForward(task.id)}><i class="fa-solid fa-arrow-up"></i></button>
+		{/if}
+		<button class="icon-button" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
+	</div>
+</div>
+
+{#if pauseModalOpen}
+	<div
+		use:portal
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close pause reason modal"
+		onclick={() => (pauseModalOpen = false)}
+		onkeydown={handlePauseBackdropKeydown}
+	>
+		<div
+			class="pause-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby={`pause-modal-title-${task.id}`}
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && (pauseModalOpen = false)}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Pause Action</div>
+					<h2 class="h6 mt-2 mb-1" id={`pause-modal-title-${task.id}`}>{task.title}</h2>
+					<p class="soft-text small mb-0">Optional: add the blocker or reason so the action shows that instead of the action itself.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close pause modal" onclick={() => (pauseModalOpen = false)}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<label class="form-label soft-text" for={`pause-reason-${task.id}`}>Why is this paused?</label>
+			<textarea
+				id={`pause-reason-${task.id}`}
+				class="form-control"
+				rows="4"
+				bind:value={pauseReasonDraft}
+				placeholder="Example: Waiting for a callback from finance with the corrected amount before I can send the final invoice."
+			></textarea>
+
+			<div class="d-flex justify-content-end gap-2 mt-3">
+				<button class="toolbar-button" type="button" onclick={() => (pauseModalOpen = false)}>Cancel</button>
+				<button class="toolbar-button" type="button" onclick={savePause}>Pause without reason</button>
+				<button class="toolbar-button active" type="button" onclick={savePause}>Save reason</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if dueDateModalOpen}
+	<div
+		use:portal
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close due date modal"
+		onclick={() => (dueDateModalOpen = false)}
+		onkeydown={handlePauseBackdropKeydown}
+	>
+		<div
+			class="pause-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby={`due-date-modal-title-${task.id}`}
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && (dueDateModalOpen = false)}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Due Date</div>
+					<h2 class="h6 mt-2 mb-1" id={`due-date-modal-title-${task.id}`}>{task.title}</h2>
+					<p class="soft-text small mb-0">Pick a date for this action or clear it if you want to remove the due date.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close due date modal" onclick={() => (dueDateModalOpen = false)}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<label class="form-label soft-text" for={`due-date-input-${task.id}`}>Due date</label>
+			<input
+				id={`due-date-input-${task.id}`}
+				class="form-control"
+				type="date"
+				bind:value={dueDateDraft}
+			/>
+
+			<div class="d-flex justify-content-end gap-2 mt-3">
+				<button class="toolbar-button" type="button" onclick={() => (dueDateModalOpen = false)}>Cancel</button>
+				<button class="toolbar-button" type="button" onclick={() => {
+					dueDateDraft = '';
+					saveDueDate();
+				}}>Clear date</button>
+				<button class="toolbar-button active" type="button" onclick={saveDueDate}>Save date</button>
+			</div>
+		</div>
+	</div>
+{/if}
