@@ -20,14 +20,14 @@
 		resumeTask,
 		scheduleTaskActionsClose,
 		startTaskDrag,
+		todayStarOptions,
 		toggleTask,
 		updateTaskDragTarget,
 		updateTask
 	} from '$lib/tasks';
 
 	export let task;
-	export let showTypeControls = false;
-	export let showTypeBadge = false;
+	export let showTodayStarControls = false;
 	export let disableOptions = false;
 
 	let editing = false;
@@ -43,26 +43,20 @@
 	let dueDateMenuOpen = false;
 	let dueDateMenuCloseTimer;
 	let dueDateMenuPosition = { top: 0, left: 0 };
-	let typeMenuOpen = false;
-	let typeMenuCloseTimer;
-	let typeMenuPosition = { top: 0, left: 0 };
+	let starMenuOpen = false;
+	let starMenuCloseTimer;
+	let starMenuPosition = { top: 0, left: 0 };
+	let starTriggerHovered = false;
 	let modePickerOpen = false;
 	let taskLineElement;
 	let dueDateButtonElement;
-	let typeButtonElement;
+	let starButtonElement;
 	let dueDateMenuElement;
-	let typeMenuElement;
+	let starMenuElement;
 	let rowDragActive = false;
 	let pendingDrag = null;
 	let suppressEditClick = false;
 	let rowDropPlacement = null;
-
-	const matrixTypes = [
-		'Urgent and Important',
-		'Urgent and not important',
-		'Important and not urgent',
-		'Not urgent and not important'
-	];
 
 	$: if (!editing) {
 		draftTitle = task.title;
@@ -76,13 +70,28 @@
 		dueDateDraft = task.dueDate || '';
 	}
 
-	$: actionsOpen = !disableOptions && !$draggedTask.id && ($hoveredTaskId === task.id || editing);
+	$: actionsOpen =
+		!disableOptions &&
+		!starTriggerHovered &&
+		!starMenuOpen &&
+		!$draggedTask.id &&
+		($hoveredTaskId === task.id || editing);
 	$: hasPauseReason = Boolean(task.pauseReason?.trim());
 	$: rawEditDateMatch = detectActionDate(draftTitle);
 	$: editDateMatch =
 		rawEditDateMatch && rawEditDateMatch.phrase.toLowerCase() === editDismissedPhrase ? null : rawEditDateMatch;
 	$: editDatePreview = buildHighlightedDateHtml(draftTitle, editDateMatch);
 	$: selectableModes = $modes.filter((mode) => mode !== 'All Modes');
+	$: selectedTodayStar = todayStarOptions.find((option) => option.value === task.todayStar) || todayStarOptions[3];
+	$: selectedTodayStarIcon =
+		selectedTodayStar.value === 'none'
+			? 'fa-regular fa-star'
+			: selectedTodayStar.value === 'yellow'
+				? 'fa-regular fa-star'
+				: 'fa-solid fa-star';
+	$: if (starMenuOpen && $hoveredTaskId !== task.id) {
+		closeStarMenu();
+	}
 	$: if (!$draggedTask.id) {
 		rowDropPlacement = null;
 	}
@@ -243,43 +252,49 @@
 		dueDateMenuOpen = false;
 	}
 
-	function openTypeMenu(anchor = typeButtonElement) {
-		if (typeMenuCloseTimer) {
-			clearTimeout(typeMenuCloseTimer);
-			typeMenuCloseTimer = undefined;
+	function openStarMenu(anchor = starButtonElement) {
+		if (starMenuCloseTimer) {
+			clearTimeout(starMenuCloseTimer);
+			starMenuCloseTimer = undefined;
 		}
 
 		setFloatingMenuPosition(anchor, (value) => {
-			typeMenuPosition = value;
+			starMenuPosition = value;
 		});
-		typeMenuOpen = true;
+		starMenuOpen = true;
 	}
 
-	function scheduleTypeMenuClose(delay = 3000) {
-		if (typeMenuCloseTimer) {
-			clearTimeout(typeMenuCloseTimer);
+	function handleStarTriggerEnter(anchor = starButtonElement) {
+		starTriggerHovered = true;
+		openStarMenu(anchor);
+	}
+
+	function scheduleStarMenuClose(delay = 3000) {
+		if (starMenuCloseTimer) {
+			clearTimeout(starMenuCloseTimer);
 		}
 
-		typeMenuCloseTimer = setTimeout(() => {
-			typeMenuOpen = false;
-			typeMenuCloseTimer = undefined;
+		starMenuCloseTimer = setTimeout(() => {
+			starMenuOpen = false;
+			starMenuCloseTimer = undefined;
 		}, delay);
 	}
 
-	function closeTypeMenu() {
-		if (typeMenuCloseTimer) {
-			clearTimeout(typeMenuCloseTimer);
-			typeMenuCloseTimer = undefined;
+	function closeStarMenu() {
+		if (starMenuCloseTimer) {
+			clearTimeout(starMenuCloseTimer);
+			starMenuCloseTimer = undefined;
 		}
 
-		typeMenuOpen = false;
+		starTriggerHovered = false;
+		starMenuOpen = false;
 	}
 
-	function setMatrixType(value) {
+	function setTodayStar(value) {
 		updateTask(task.id, {
-			matrixType: value
+			todayStar: value
 		});
-		closeTypeMenu();
+		closeStarMenu();
 	}
 
 	function setTaskMode(mode) {
@@ -312,10 +327,10 @@
 		if (disableOptions || !actionsOpen || editing || pauseModalOpen || dueDateModalOpen) return;
 		if (taskLineElement?.contains(event.target)) return;
 		if (dueDateMenuElement?.contains(event.target)) return;
-		if (typeMenuElement?.contains(event.target)) return;
+		if (starMenuElement?.contains(event.target)) return;
 
 		closeDueDateMenu();
-		closeTypeMenu();
+		closeStarMenu();
 		closeTaskActions(task.id);
 	}
 
@@ -385,7 +400,7 @@
 		if (actionsOpen) {
 			closeTaskActions(task.id);
 			closeDueDateMenu();
-			closeTypeMenu();
+			closeStarMenu();
 			modePickerOpen = false;
 			return;
 		}
@@ -434,8 +449,8 @@
 		if (dueDateMenuCloseTimer) {
 			clearTimeout(dueDateMenuCloseTimer);
 		}
-		if (typeMenuCloseTimer) {
-			clearTimeout(typeMenuCloseTimer);
+		if (starMenuCloseTimer) {
+			clearTimeout(starMenuCloseTimer);
 		}
 	});
 </script>
@@ -525,34 +540,58 @@
 						>
 							<div class={`task-title ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						</div>
-						{#if task.dueDate || (showTypeBadge && task.matrixType)}
+						{#if task.dueDate}
 							<div class="task-meta-row mt-1">
 								{#if task.dueDate}
 									<div class="task-due-note">
 										<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
 									</div>
 								{/if}
-								{#if showTypeBadge && task.matrixType}
-									<div class="task-matrix-note">{task.matrixType}</div>
-								{/if}
 							</div>
 						{/if}
 					{/if}
 				</div>
 			</div>
-			<button
-				class={`icon-button task-options-trigger ${actionsOpen ? 'active' : ''}`}
-				type="button"
-				aria-label={`Open options for ${task.title}`}
-				aria-expanded={actionsOpen}
-				onclick={toggleActionMenu}
-			>
-				<i class="fa-solid fa-ellipsis"></i>
-			</button>
+			<div class="d-flex align-items-center gap-1 flex-shrink-0">
+				{#if showTodayStarControls}
+					<div
+						class="task-inline-action-group"
+						role="presentation"
+						onmouseenter={() => handleStarTriggerEnter(starButtonElement)}
+						onmouseleave={() => scheduleStarMenuClose()}
+					>
+						<button
+							bind:this={starButtonElement}
+							class={`icon-button task-star-trigger ${task.todayStar !== 'none' ? task.todayStar : ''}`}
+							type="button"
+							aria-label={`Set star for ${task.title}`}
+							title={selectedTodayStar.meaning}
+							onmouseenter={() => handleStarTriggerEnter(starButtonElement)}
+							onclick={() => (starMenuOpen ? closeStarMenu() : handleStarTriggerEnter(starButtonElement))}
+						>
+							<i class={selectedTodayStarIcon}></i>
+						</button>
+					</div>
+				{/if}
+				<button
+					class={`icon-button task-options-trigger ${actionsOpen ? 'active' : ''}`}
+					type="button"
+					aria-label={`Open options for ${task.title}`}
+					aria-expanded={actionsOpen}
+					onmouseenter={closeStarMenu}
+					onclick={toggleActionMenu}
+				>
+					<i class="fa-solid fa-ellipsis"></i>
+				</button>
+			</div>
 		</div>
 	{/if}
 
-	<div class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`} role="presentation">
+	<div
+		class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`}
+		role="presentation"
+		onmouseenter={closeStarMenu}
+	>
 		{#if task.paused}
 			<button
 				class="icon-button"
@@ -592,22 +631,6 @@
 				aria-label={`Change mode for ${task.title}`}
 				onclick={() => (modePickerOpen = true)}
 			><i class="fa-solid fa-layer-group"></i></button>
-			{#if showTypeControls}
-				<div
-					class="task-inline-action-group"
-					role="presentation"
-					onmouseenter={() => openTypeMenu(typeButtonElement)}
-					onmouseleave={() => scheduleTypeMenuClose()}
-				>
-					<button
-						bind:this={typeButtonElement}
-						class="icon-button"
-						type="button"
-						aria-label={`Set type for ${task.title}`}
-						onclick={() => (typeMenuOpen ? closeTypeMenu() : openTypeMenu(typeButtonElement))}
-					><i class="fa-solid fa-table-cells-large"></i></button>
-				</div>
-			{/if}
 			{#if !editing}
 				<button class="icon-button" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
 			{/if}
@@ -684,19 +707,25 @@
 	</div>
 {/if}
 
-{#if typeMenuOpen}
+{#if starMenuOpen}
 	<div
 		use:portal
-		bind:this={typeMenuElement}
-		class="task-inline-submenu task-inline-submenu-stack task-inline-submenu-floating"
+		bind:this={starMenuElement}
+		class="task-inline-submenu task-inline-submenu-stack task-inline-submenu-floating task-star-menu"
 		role="presentation"
-		style={`top:${typeMenuPosition.top}px;left:${typeMenuPosition.left}px;`}
-		onmouseenter={() => openTypeMenu(typeButtonElement)}
-		onmouseleave={() => scheduleTypeMenuClose()}
+		style={`top:${starMenuPosition.top}px;left:${starMenuPosition.left}px;`}
+		onmouseenter={() => handleStarTriggerEnter(starButtonElement)}
+		onmouseleave={() => scheduleStarMenuClose()}
 	>
-		{#each matrixTypes as matrixType}
-			<button class="task-inline-submenu-button" type="button" onclick={() => setMatrixType(matrixType)}>
-				{matrixType}
+		{#each todayStarOptions as starOption}
+			<button
+				class={`task-inline-submenu-button task-star-choice ${task.todayStar === starOption.value ? 'active' : ''} ${starOption.value !== 'none' ? starOption.value : ''}`}
+				type="button"
+				aria-label={starOption.meaning}
+				title={starOption.meaning}
+				onclick={() => setTodayStar(starOption.value)}
+			>
+				<i class={starOption.value === 'none' || starOption.value === 'yellow' ? 'fa-regular fa-star' : 'fa-solid fa-star'}></i>
 			</button>
 		{/each}
 	</div>

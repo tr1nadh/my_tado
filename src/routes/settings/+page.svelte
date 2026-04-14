@@ -1,8 +1,13 @@
 <script>
 	import { checkForDesktopUpdates, desktopUpdate, isDesktopUpdaterAvailable } from '$lib/desktopUpdater';
-	import { settings, updateSettings } from '$lib/tasks';
+	import { settings, todayStarOptions, updateSettings } from '$lib/tasks';
 
 	const desktopUpdatesSupported = isDesktopUpdaterAvailable();
+
+	function clampLimit(value) {
+		const parsed = Number.parseInt(value, 10);
+		return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+	}
 </script>
 
 <section class="glass-panel rounded-4 p-4 fade-up">
@@ -18,23 +23,95 @@
 		<div class="settings-card">
 			<div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
 				<div class="settings-copy">
-					<div class="settings-title">Action categories</div>
+					<div class="settings-title">Today stars</div>
 					<p class="soft-text mb-2">
-						Show or hide the four planning categories on the Today page. New actions still default to
-						<code>Not urgent and not important</code>.
+						Stars work only on the Today page. When one color reaches its limit, the next action you try to place there
+						automatically falls through to the next star color, and finally into Remaining.
 					</p>
+
+					<div class="today-star-settings-list" aria-label="Today star meanings">
+						{#each todayStarOptions as star}
+							<div class={`today-star-settings-item ${star.value}`}>
+								<span class={`today-star-settings-icon ${star.value}`}>
+									<i class={star.value === 'none' || star.value === 'yellow' ? 'fa-regular fa-star' : 'fa-solid fa-star'}></i>
+								</span>
+								<div class="today-star-settings-copy">
+									<div class="today-star-settings-heading">{star.label}</div>
+									<div class="soft-text small">{star.meaning}</div>
+								</div>
+							</div>
+						{/each}
+					</div>
 				</div>
-				<label class="settings-switch">
-					<input
-						type="checkbox"
-						checked={$settings.enableMatrixCategories}
-						onchange={(event) => updateSettings({ enableMatrixCategories: event.currentTarget.checked })}
-					/>
-					<span class="settings-switch-track" aria-hidden="true">
-						<span class="settings-switch-thumb"></span>
-					</span>
-					<span>{ $settings.enableMatrixCategories ? 'Enabled' : 'Disabled' }</span>
-				</label>
+
+				<div class="settings-number-stack">
+					<label class="settings-switch">
+						<input
+							type="checkbox"
+							checked={$settings.useUnifiedTodayStarLimit}
+							onchange={(event) => updateSettings({ useUnifiedTodayStarLimit: event.currentTarget.checked })}
+						/>
+						<span class="settings-switch-track" aria-hidden="true">
+							<span class="settings-switch-thumb"></span>
+						</span>
+						<span>{$settings.useUnifiedTodayStarLimit ? 'Same limit for all stars' : 'Custom limit per star'}</span>
+					</label>
+
+					{#if $settings.useUnifiedTodayStarLimit}
+						<label class="settings-number-field">
+							<span>Limit for each star</span>
+							<input
+								class="form-control"
+								type="number"
+								min="1"
+								value={$settings.todayStarLimit}
+								onchange={(event) => updateSettings({ todayStarLimit: clampLimit(event.currentTarget.value) })}
+							/>
+						</label>
+					{:else}
+						<div class="settings-number-grid">
+							<label class="settings-number-field">
+								<span>Red star limit</span>
+								<input
+									class="form-control"
+									type="number"
+									min="1"
+									value={$settings.todayStarLimits.red}
+									onchange={(event) =>
+										updateSettings({
+											todayStarLimits: { ...$settings.todayStarLimits, red: clampLimit(event.currentTarget.value) }
+										})}
+								/>
+							</label>
+							<label class="settings-number-field">
+								<span>Blue star limit</span>
+								<input
+									class="form-control"
+									type="number"
+									min="1"
+									value={$settings.todayStarLimits.blue}
+									onchange={(event) =>
+										updateSettings({
+											todayStarLimits: { ...$settings.todayStarLimits, blue: clampLimit(event.currentTarget.value) }
+										})}
+								/>
+							</label>
+							<label class="settings-number-field">
+								<span>Yellow star limit</span>
+								<input
+									class="form-control"
+									type="number"
+									min="1"
+									value={$settings.todayStarLimits.yellow}
+									onchange={(event) =>
+										updateSettings({
+											todayStarLimits: { ...$settings.todayStarLimits, yellow: clampLimit(event.currentTarget.value) }
+										})}
+								/>
+							</label>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 
