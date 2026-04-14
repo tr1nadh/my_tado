@@ -4,10 +4,12 @@ All notable changes to Karya will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses semantic versioning in a practical way for this project.
 
-## [Unreleased]
+## [1.1.0] - 2026-04-14
 
 ### Changed
-- This section will track changes that are not released yet.
+- Replaced the old Today category model with a Today-only star system: red, blue, yellow, and remaining.
+- Added configurable Today star limits in Settings with shared or per-star caps and built-in minimum enforcement.
+- Added Today-only star controls and badges on actions, with overflow from red to blue to yellow when a star bucket is full.
 
 ## [1.0.1] - 2026-04-14
 
