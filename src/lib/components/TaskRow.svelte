@@ -526,6 +526,7 @@
 						</div>
 						{#if hasPauseReason}
 							<div class="paused-reason mt-1">{task.pauseReason}</div>
+							<div class="paused-reason-task soft-text">{task.title}</div>
 						{:else}
 							<div class={`task-title mt-1 ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						{/if}

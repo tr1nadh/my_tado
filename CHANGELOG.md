@@ -4,6 +4,13 @@ All notable changes to Karya will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses semantic versioning in a practical way for this project.
 
+## [1.1.1] - 2026-04-14
+
+### Changed
+- Simplified the homepage into a clearer problem-solving landing page with a direct `Take action` path into Today.
+- Kept paused actions more informative by showing the pause reason first and the original action underneath in subtle text.
+- Refined the surrounding app shell and action views as part of the current release snapshot.
+
 ## [1.1.0] - 2026-04-14
 
 ### Changed

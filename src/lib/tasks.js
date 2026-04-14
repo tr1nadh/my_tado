@@ -6,18 +6,78 @@ const modesStorageKey = 'indian-chaos-modes-v1';
 const settingsStorageKey = 'indian-chaos-settings-v1';
 const defaultModes = ['All Modes', 'Work Sprint', 'Home Reset', 'Errands', 'Family Loop', 'Health Check'];
 const fallbackTaskMode = 'Work Sprint';
-const defaultMatrixType = 'Not urgent and not important';
+const defaultTodayStar = 'none';
+const defaultTodayStarLimit = 5;
 const defaultSettings = {
-	enableMatrixCategories: true
+	useUnifiedTodayStarLimit: true,
+	todayStarLimit: defaultTodayStarLimit,
+	todayStarLimits: {
+		red: defaultTodayStarLimit,
+		blue: defaultTodayStarLimit,
+		yellow: defaultTodayStarLimit
+	}
 };
 
 export const priorities = ['High', 'Medium', 'Low'];
 export const energyModes = ['Quick', 'Admin', 'Focus'];
+export const todayStarOptions = [
+	{ value: 'red', label: 'Red star', meaning: 'Urgent and important' },
+	{ value: 'blue', label: 'Blue star', meaning: 'Urgent but not important' },
+	{ value: 'yellow', label: 'Yellow star', meaning: 'Important but not urgent' },
+	{ value: 'none', label: 'Remaining', meaning: 'No star assigned yet' }
+];
+
+function normalizeStarLimit(value, fallback = defaultTodayStarLimit) {
+	const parsed = Number.parseInt(value, 10);
+	return Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
+}
+
+function normalizeTodayStar(value, legacyMatrixType = '') {
+	if (value === 'red' || value === 'blue' || value === 'yellow' || value === 'none') return value;
+
+	switch (legacyMatrixType) {
+		case 'Urgent and Important':
+			return 'red';
+		case 'Urgent and not important':
+			return 'blue';
+		case 'Important and not urgent':
+			return 'yellow';
+		default:
+			return defaultTodayStar;
+	}
+}
+
+function nextTodayStar(value) {
+	if (value === 'red') return 'blue';
+	if (value === 'blue') return 'yellow';
+	return 'none';
+}
+
+export function getTodayStarLimits(value) {
+	const normalized = normalizeSettings(value);
+	if (normalized.useUnifiedTodayStarLimit) {
+		return {
+			red: normalized.todayStarLimit,
+			blue: normalized.todayStarLimit,
+			yellow: normalized.todayStarLimit
+		};
+	}
+
+	return normalized.todayStarLimits;
+}
 
 function normalizeSettings(value) {
 	return {
-		enableMatrixCategories:
-			value?.enableMatrixCategories === undefined ? defaultSettings.enableMatrixCategories : Boolean(value.enableMatrixCategories)
+		useUnifiedTodayStarLimit:
+			value?.useUnifiedTodayStarLimit === undefined
+				? defaultSettings.useUnifiedTodayStarLimit
+				: Boolean(value.useUnifiedTodayStarLimit),
+		todayStarLimit: normalizeStarLimit(value?.todayStarLimit, defaultSettings.todayStarLimit),
+		todayStarLimits: {
+			red: normalizeStarLimit(value?.todayStarLimits?.red, defaultSettings.todayStarLimits.red),
+			blue: normalizeStarLimit(value?.todayStarLimits?.blue, defaultSettings.todayStarLimits.blue),
+			yellow: normalizeStarLimit(value?.todayStarLimits?.yellow, defaultSettings.todayStarLimits.yellow)
+		}
 	};
 }
 
@@ -90,7 +150,7 @@ function normalizeTask(task) {
 		id: task.id || crypto.randomUUID(),
 		title: task.title || '',
 		mode: task.mode || 'Work Sprint',
-		matrixType: task.matrixType || defaultMatrixType,
+		todayStar: normalizeTodayStar(task.todayStar, task.matrixType),
 		priority: task.priority || 'Medium',
 		energy: task.energy || 'Quick',
 		context: task.context || '',
@@ -101,6 +161,36 @@ function normalizeTask(task) {
 		pausedAt: task.pausedAt || '',
 		createdAt: task.createdAt || Date.now()
 	};
+}
+
+function isTodayScopedTask(task) {
+	return Boolean(task.dueDate) && (isToday(task.dueDate) || isOverdue(task.dueDate));
+}
+
+function rebalanceTodayStars(list, settingsValue = get(settings)) {
+	const limits = getTodayStarLimits(settingsValue);
+	const counts = { red: 0, blue: 0, yellow: 0 };
+
+	return list.map((task) => {
+		const normalizedTask = normalizeTask(task);
+
+		if (normalizedTask.done || !isTodayScopedTask(normalizedTask) || normalizedTask.todayStar === 'none') {
+			return normalizedTask;
+		}
+
+		let assignedStar = normalizedTask.todayStar;
+		while (assignedStar !== 'none' && counts[assignedStar] >= limits[assignedStar]) {
+			assignedStar = nextTodayStar(assignedStar);
+		}
+
+		if (assignedStar !== 'none') {
+			counts[assignedStar] += 1;
+		}
+
+		return assignedStar === normalizedTask.todayStar
+			? normalizedTask
+			: normalizeTask({ ...normalizedTask, todayStar: assignedStar });
+	});
 }
 
 export function initTasks() {
@@ -158,14 +248,18 @@ export function initTasks() {
 }
 
 export function updateSettings(patch) {
-	settings.update((value) => normalizeSettings({ ...value, ...patch }));
+	const nextSettings = normalizeSettings({ ...get(settings), ...patch });
+	settings.set(nextSettings);
+	tasks.update((list) => rebalanceTodayStars(list, nextSettings));
 }
 
 export function addTask(task) {
-	tasks.update((list) => [
-		normalizeTask({ ...task, id: crypto.randomUUID(), createdAt: Date.now(), done: false }),
-		...list
-	]);
+	tasks.update((list) =>
+		rebalanceTodayStars([
+			normalizeTask({ ...task, id: crypto.randomUUID(), createdAt: Date.now(), done: false }),
+			...list
+		])
+	);
 }
 
 export function createMode(name) {
@@ -277,7 +371,9 @@ export function reorderTaskToTarget(taskId, targetTaskId, placement = 'before') 
 }
 
 export function updateTask(id, patch) {
-	tasks.update((list) => list.map((task) => (task.id === id ? normalizeTask({ ...task, ...patch }) : task)));
+	tasks.update((list) =>
+		rebalanceTodayStars(list.map((task) => (task.id === id ? normalizeTask({ ...task, ...patch }) : task)))
+	);
 }
 
 export function rescheduleTasksToToday(ids) {

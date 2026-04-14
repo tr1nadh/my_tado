@@ -11,7 +11,7 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import { activeMode, addTask, clearDoneForMode, modeMatches, settings, settingsReady, tasks } from '$lib/tasks';
+	import { activeMode, addTask, clearDoneForMode, modeMatches, tasks } from '$lib/tasks';
 
 	let search = '';
 	let showDone = false;
@@ -374,11 +374,7 @@
 					<div class="task-list">
 						{#each completedTasks as task (task.id)}
 							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-								<TaskRow
-									{task}
-									disableOptions={searchOpen}
-									showTypeBadge={$settingsReady && $settings.enableMatrixCategories}
-								/>
+								<TaskRow {task} disableOptions={searchOpen} />
 							</div>
 						{/each}
 					</div>
@@ -398,11 +394,7 @@
 							<div class="task-list">
 								{#each group.tasks as task (task.id)}
 									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-										<TaskRow
-											{task}
-											disableOptions={searchOpen}
-											showTypeBadge={$settingsReady && $settings.enableMatrixCategories}
-										/>
+										<TaskRow {task} disableOptions={searchOpen} />
 									</div>
 								{/each}
 							</div>
@@ -418,11 +410,7 @@
 						<div class="task-list">
 							{#each pausedActions as task (task.id)}
 								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow
-										{task}
-										disableOptions={searchOpen}
-										showTypeBadge={$settingsReady && $settings.enableMatrixCategories}
-									/>
+									<TaskRow {task} disableOptions={searchOpen} />
 								</div>
 							{/each}
 						</div>
@@ -576,7 +564,7 @@
 						<div class="search-results-list task-list">
 							{#each modalSearchedTasks as task (task.id)}
 								<div class="search-result-row">
-									<TaskRow {task} showTypeBadge={$settingsReady && $settings.enableMatrixCategories} />
+									<TaskRow {task} />
 								</div>
 							{/each}
 						</div>

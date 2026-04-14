@@ -30,6 +30,7 @@
 	let modeActionTarget = $state('All Modes');
 	let draggedMode = $state(null);
 	const todayDateNumber = new Date().getDate();
+	const isHomePage = $derived(page.url.pathname === '/');
 
 	const navItems = [
 		{ href: '/today', label: 'Today', description: 'Due now', icon: 'date' },
@@ -197,82 +198,86 @@
 
 <div class="position-relative">
 	<div class="app-shell">
-		<header class="mobile-topbar glass-panel">
-			<button class="icon-button" type="button" aria-label="Open navigation" onclick={() => (mobileNavOpen = true)}>
-				<i class="fa-solid fa-bars"></i>
-			</button>
-			<div class="mobile-topbar-title">Karya</div>
-			{#if searchableRoutes.has(page.url.pathname)}
-				<button class="icon-button" type="button" aria-label="Search actions" onclick={triggerMobileSearch}>
-					<i class="fa-solid fa-magnifying-glass"></i>
+		{#if !isHomePage}
+			<header class="mobile-topbar glass-panel">
+				<button class="icon-button" type="button" aria-label="Open navigation" onclick={() => (mobileNavOpen = true)}>
+					<i class="fa-solid fa-bars"></i>
 				</button>
-			{:else}
-				<div class="mobile-topbar-spacer"></div>
-			{/if}
-		</header>
-
-		<aside class={`glass-panel side-dock side-dock-layout fade-up ${navCollapsed ? 'collapsed' : ''}`}>
-			<div class={`d-flex ${navCollapsed ? 'justify-content-center' : 'align-items-center'} gap-3 mb-4`}>
-						<div class:nav-copy-hidden={navCollapsed}>
-							<div class="sidebar-title">Karya</div>
-						</div>
-					<button
-						class="icon-button ms-auto d-none d-xl-inline-flex"
-						type="button"
-						aria-label={navCollapsed ? 'Expand side navigation' : 'Collapse side navigation'}
-						title={navCollapsed ? 'Expand nav' : 'Collapse nav'}
-						onclick={toggleNav}
-						onkeydown={handleSideNavKeydown}
-					>
-						<i class={`fa-solid ${navCollapsed ? 'fa-angles-right' : 'fa-angles-left'}`}></i>
+				<div class="mobile-topbar-title">Karya</div>
+				{#if searchableRoutes.has(page.url.pathname)}
+					<button class="icon-button" type="button" aria-label="Search actions" onclick={triggerMobileSearch}>
+						<i class="fa-solid fa-magnifying-glass"></i>
 					</button>
-			</div>
+				{:else}
+					<div class="mobile-topbar-spacer"></div>
+				{/if}
+			</header>
+		{/if}
 
-			<div class="d-grid gap-2 mb-4">
-				{#each navItems as item}
+		{#if !isHomePage}
+			<aside class={`glass-panel side-dock side-dock-layout fade-up ${navCollapsed ? 'collapsed' : ''}`}>
+				<div class={`d-flex ${navCollapsed ? 'justify-content-center' : 'align-items-center'} gap-3 mb-4`}>
+							<div class:nav-copy-hidden={navCollapsed}>
+								<div class="sidebar-title">Karya</div>
+							</div>
+						<button
+							class="icon-button ms-auto d-none d-xl-inline-flex"
+							type="button"
+							aria-label={navCollapsed ? 'Expand side navigation' : 'Collapse side navigation'}
+							title={navCollapsed ? 'Expand nav' : 'Collapse nav'}
+							onclick={toggleNav}
+							onkeydown={handleSideNavKeydown}
+						>
+							<i class={`fa-solid ${navCollapsed ? 'fa-angles-right' : 'fa-angles-left'}`}></i>
+						</button>
+				</div>
+
+				<div class="d-grid gap-2 mb-4">
+					{#each navItems as item}
+						<a
+							class={`nav-item-button ${page.url.pathname === item.href ? 'active' : ''}`}
+							href={item.href}
+							title={item.label}
+							onclick={closeMobileNav}
+							onkeydown={handleSideNavKeydown}
+						>
+							<span class="nav-icon">
+								{#if isDateIcon(item)}
+									<span class="nav-date-icon">{todayDateNumber}</span>
+								{:else}
+									<i class={`fa-solid ${item.icon}`}></i>
+								{/if}
+							</span>
+							<span class={`text-start nav-item-copy ${navCollapsed ? 'd-none' : ''}`}>
+								<span class="d-block fw-semibold">{item.label}</span>
+								<span class="soft-text small">{item.description}</span>
+							</span>
+						</a>
+					{/each}
+				</div>
+
+				<div class="mt-auto pt-2">
 					<a
-						class={`nav-item-button ${page.url.pathname === item.href ? 'active' : ''}`}
-						href={item.href}
-						title={item.label}
+						class={`nav-item-button ${page.url.pathname === settingsNavItem.href ? 'active' : ''}`}
+						href={settingsNavItem.href}
+						title={settingsNavItem.label}
 						onclick={closeMobileNav}
 						onkeydown={handleSideNavKeydown}
 					>
 						<span class="nav-icon">
-							{#if isDateIcon(item)}
-								<span class="nav-date-icon">{todayDateNumber}</span>
-							{:else}
-								<i class={`fa-solid ${item.icon}`}></i>
-							{/if}
+							<i class={`fa-solid ${settingsNavItem.icon}`}></i>
 						</span>
 						<span class={`text-start nav-item-copy ${navCollapsed ? 'd-none' : ''}`}>
-							<span class="d-block fw-semibold">{item.label}</span>
-							<span class="soft-text small">{item.description}</span>
+							<span class="d-block fw-semibold">{settingsNavItem.label}</span>
+							<span class="soft-text small">{settingsNavItem.description}</span>
 						</span>
 					</a>
-				{/each}
-			</div>
+				</div>
+			</aside>
+		{/if}
 
-			<div class="mt-auto pt-2">
-				<a
-					class={`nav-item-button ${page.url.pathname === settingsNavItem.href ? 'active' : ''}`}
-					href={settingsNavItem.href}
-					title={settingsNavItem.label}
-					onclick={closeMobileNav}
-					onkeydown={handleSideNavKeydown}
-				>
-					<span class="nav-icon">
-						<i class={`fa-solid ${settingsNavItem.icon}`}></i>
-					</span>
-					<span class={`text-start nav-item-copy ${navCollapsed ? 'd-none' : ''}`}>
-						<span class="d-block fw-semibold">{settingsNavItem.label}</span>
-						<span class="soft-text small">{settingsNavItem.description}</span>
-					</span>
-				</a>
-			</div>
-		</aside>
-
-		<div class={`app-content ${navCollapsed ? 'nav-collapsed' : ''}`}>
-			{#if page.url.pathname !== '/today'}
+		<div class={`app-content ${navCollapsed ? 'nav-collapsed' : ''} ${isHomePage ? 'home-shell' : ''}`}>
+			{#if page.url.pathname !== '/today' && page.url.pathname !== '/'}
 				<section class="top-mode-bar">
 					<div class="container-fluid py-3 px-3 px-lg-4">
 						<div class="mode-strip">
@@ -337,24 +342,26 @@
 	</div>
 </div>
 
-<nav class="mobile-bottom-nav glass-panel" aria-label="Mobile navigation">
-	{#each [...navItems, settingsNavItem] as item}
-		<a
-			class={`mobile-bottom-link ${page.url.pathname === item.href ? 'active' : ''}`}
-			href={item.href}
-			title={item.label}
-		>
-			{#if isDateIcon(item)}
-				<span class="nav-date-icon">{todayDateNumber}</span>
-			{:else}
-				<i class={`fa-solid ${item.icon}`}></i>
-			{/if}
-			<span>{item.label}</span>
-		</a>
-	{/each}
-</nav>
+{#if !isHomePage}
+	<nav class="mobile-bottom-nav glass-panel" aria-label="Mobile navigation">
+		{#each [...navItems, settingsNavItem] as item}
+			<a
+				class={`mobile-bottom-link ${page.url.pathname === item.href ? 'active' : ''}`}
+				href={item.href}
+				title={item.label}
+			>
+				{#if isDateIcon(item)}
+					<span class="nav-date-icon">{todayDateNumber}</span>
+				{:else}
+					<i class={`fa-solid ${item.icon}`}></i>
+				{/if}
+				<span>{item.label}</span>
+			</a>
+		{/each}
+	</nav>
+{/if}
 
-{#if mobileNavOpen}
+{#if !isHomePage && mobileNavOpen}
 	<div
 		class="pause-modal-backdrop mobile-nav-backdrop"
 		role="button"

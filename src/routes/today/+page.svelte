@@ -21,7 +21,6 @@
 		pauseTask,
 		rescheduleTasksToToday,
 		resumeTask,
-		settings,
 		settingsReady,
 		toggleTask,
 		tasks
@@ -45,33 +44,30 @@
 	let focusPauseReasonDraft = '';
 	const todayDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
-	const matrixTabs = [
-		'All',
-		'Urgent and Important',
-		'Urgent and not important',
-		'Important and not urgent',
-		'Not urgent and not important'
-	];
-	let selectedMatrixTab = 'All';
+	const todayStarOrder = ['red', 'blue', 'yellow', 'none'];
+
+	function sortByTodayStar(list) {
+		return [...list].sort((left, right) => {
+			const leftRank = todayStarOrder.indexOf(left.todayStar || 'none');
+			const rightRank = todayStarOrder.indexOf(right.todayStar || 'none');
+			return leftRank - rightRank;
+		});
+	}
 
 	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
-	$: matrixScopedTasks =
-		!$settings.enableMatrixCategories || selectedMatrixTab === 'All'
-			? scopedTasks
-			: scopedTasks.filter((task) => task.matrixType === selectedMatrixTab);
-	$: modalSearchedTasks = matrixScopedTasks.filter((task) => {
+	$: modalSearchedTasks = scopedTasks.filter((task) => {
 		const matchesSearch =
 			!search ||
 			task.title.toLowerCase().includes(search.toLowerCase());
 
 		return matchesSearch;
 	});
-	$: overdueTasks = matrixScopedTasks.filter((task) => !task.done && isOverdue(task.dueDate));
-	$: todayTasks = matrixScopedTasks.filter((task) => !task.done && isToday(task.dueDate));
-	$: pausedActions = matrixScopedTasks.filter((task) => !task.done && task.paused);
-	$: overdueActiveActions = overdueTasks.filter((task) => !task.paused);
-	$: todayActiveActions = todayTasks.filter((task) => !task.paused);
-	$: focusActions = [...overdueTasks, ...todayTasks];
+	$: overdueTasks = scopedTasks.filter((task) => !task.done && isOverdue(task.dueDate));
+	$: todayTasks = scopedTasks.filter((task) => !task.done && isToday(task.dueDate));
+	$: pausedActions = sortByTodayStar(scopedTasks.filter((task) => !task.done && task.paused));
+	$: overdueActiveActions = sortByTodayStar(overdueTasks.filter((task) => !task.paused));
+	$: todayActiveActions = sortByTodayStar(todayTasks.filter((task) => !task.paused));
+	$: focusActions = sortByTodayStar([...overdueTasks, ...todayTasks]);
 	$: if (!focusActions.length) {
 		focusIndex = 0;
 		focusMode = false;
@@ -82,7 +78,7 @@
 	$: if (!focusPauseModalOpen) {
 		focusPauseReasonDraft = activeFocusTask?.pauseReason || '';
 	}
-	$: completedTasks = matrixScopedTasks.filter((task) => task.done);
+	$: completedTasks = sortByTodayStar(scopedTasks.filter((task) => task.done));
 	$: actionCount = actionDraft
 		.split('\n')
 		.map((line) => line.trim())
@@ -326,7 +322,7 @@
 	<section class="glass-panel rounded-4 p-4 fade-up">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3 soft-text small">
-				<span>{matrixScopedTasks.filter((task) => !task.done && !task.paused).length} open</span>
+				<span>{scopedTasks.filter((task) => !task.done && !task.paused).length} open</span>
 				{#if pausedActions.length}
 					<span>{pausedActions.length} paused</span>
 				{/if}
@@ -350,30 +346,6 @@
 			</div>
 		</div>
 
-		{#if $settingsReady && $settings.enableMatrixCategories}
-			<div class="matrix-tabs mb-4" role="tablist" aria-label="Today action categories">
-				{#each matrixTabs as matrixTab}
-					<button
-						class={`matrix-tab-button ${selectedMatrixTab === matrixTab ? 'active' : ''}`}
-						type="button"
-						role="tab"
-						aria-selected={selectedMatrixTab === matrixTab}
-						onclick={() => {
-							selectedMatrixTab = matrixTab;
-							focusIndex = 0;
-						}}
-					>
-						<span>{matrixTab}</span>
-						<span class="matrix-tab-count">
-							{matrixTab === 'All'
-								? scopedTasks.filter((task) => !task.done).length
-								: scopedTasks.filter((task) => task.matrixType === matrixTab && !task.done).length}
-						</span>
-					</button>
-				{/each}
-			</div>
-		{/if}
-
 		{#if showDone}
 			{#if completedTasks.length}
 				<section
@@ -388,18 +360,15 @@
 									<TaskRow
 										{task}
 										disableOptions={searchOpen}
-										showTypeBadge={$settingsReady && $settings.enableMatrixCategories && selectedMatrixTab === 'All'}
+										showTodayStarBadge
+										showTodayStarControls
 									/>
 								</div>
 							{/each}
 						</div>
 				</section>
 			{:else}
-				<div class="empty-state">
-					{!$settings.enableMatrixCategories || selectedMatrixTab === 'All'
-						? 'No completed actions right now.'
-						: 'No completed actions in this category.'}
-				</div>
+				<div class="empty-state">No completed actions right now.</div>
 			{/if}
 		{:else if focusMode}
 			<div class="empty-state">Focus mode is active.</div>
@@ -422,8 +391,8 @@
 									<TaskRow
 										{task}
 										disableOptions={searchOpen}
-										showTypeControls={$settingsReady && $settings.enableMatrixCategories}
-										showTypeBadge={$settingsReady && $settings.enableMatrixCategories && selectedMatrixTab === 'All'}
+										showTodayStarControls
+										showTodayStarBadge
 									/>
 								</div>
 							{/each}
@@ -440,17 +409,13 @@
 									<TaskRow
 										{task}
 										disableOptions={searchOpen}
-										showTypeControls={$settingsReady && $settings.enableMatrixCategories}
-										showTypeBadge={$settingsReady && $settings.enableMatrixCategories && selectedMatrixTab === 'All'}
+										showTodayStarControls
+										showTodayStarBadge
 									/>
 								</div>
 							{/each}
 						{:else}
-							<div class="empty-state">
-								{!$settings.enableMatrixCategories || selectedMatrixTab === 'All'
-									? 'No actions for today.'
-									: 'No actions in this category for today.'}
-							</div>
+							<div class="empty-state">No actions for today.</div>
 						{/if}
 					</div>
 				</section>
@@ -464,8 +429,8 @@
 									<TaskRow
 										{task}
 										disableOptions={searchOpen}
-										showTypeControls={$settingsReady && $settings.enableMatrixCategories}
-										showTypeBadge={$settingsReady && $settings.enableMatrixCategories && selectedMatrixTab === 'All'}
+										showTodayStarControls
+										showTodayStarBadge
 									/>
 								</div>
 							{/each}
@@ -549,6 +514,9 @@
 							<div class="focus-overlay-task">
 								{activeFocusTask.paused && activeFocusTask.pauseReason ? activeFocusTask.pauseReason : activeFocusTask.title}
 							</div>
+							{#if activeFocusTask.paused && activeFocusTask.pauseReason}
+								<div class="paused-reason-task soft-text">{activeFocusTask.title}</div>
+							{/if}
 
 							{#if activeFocusTask.dueDate}
 								<div class="task-due-note focus-overlay-due">
@@ -739,8 +707,8 @@
 								<div class="search-result-row">
 									<TaskRow
 										{task}
-										showTypeControls={$settingsReady && $settings.enableMatrixCategories}
-										showTypeBadge={$settingsReady && $settings.enableMatrixCategories && selectedMatrixTab === 'All'}
+										showTodayStarControls
+										showTodayStarBadge
 									/>
 								</div>
 							{/each}
