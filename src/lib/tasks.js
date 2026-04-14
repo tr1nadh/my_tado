@@ -3,16 +3,42 @@ import { derived, get, writable } from 'svelte/store';
 
 const storageKey = 'indian-chaos-todo-v2';
 const modesStorageKey = 'indian-chaos-modes-v1';
+const settingsStorageKey = 'indian-chaos-settings-v1';
 const defaultModes = ['All Modes', 'Work Sprint', 'Home Reset', 'Errands', 'Family Loop', 'Health Check'];
 const fallbackTaskMode = 'Work Sprint';
+const defaultMatrixType = 'Not urgent and not important';
+const defaultSettings = {
+	enableMatrixCategories: true
+};
 
 export const priorities = ['High', 'Medium', 'Low'];
 export const energyModes = ['Quick', 'Admin', 'Focus'];
+
+function normalizeSettings(value) {
+	return {
+		enableMatrixCategories:
+			value?.enableMatrixCategories === undefined ? defaultSettings.enableMatrixCategories : Boolean(value.enableMatrixCategories)
+	};
+}
+
+function loadInitialSettings() {
+	if (!browser) return defaultSettings;
+
+	try {
+		const savedSettings = localStorage.getItem(settingsStorageKey);
+		return savedSettings ? normalizeSettings(JSON.parse(savedSettings)) : defaultSettings;
+	} catch {
+		return defaultSettings;
+	}
+}
 
 export const tasks = writable([]);
 export const modes = writable(defaultModes);
 export const activeMode = writable('All Modes');
 export const hoveredTaskId = writable(null);
+export const draggedTask = writable({ id: null, targetId: null, placement: 'before' });
+export const settings = writable(loadInitialSettings());
+export const settingsReady = writable(false);
 
 let hydrated = false;
 let subscribed = false;
@@ -64,6 +90,7 @@ function normalizeTask(task) {
 		id: task.id || crypto.randomUUID(),
 		title: task.title || '',
 		mode: task.mode || 'Work Sprint',
+		matrixType: task.matrixType || defaultMatrixType,
 		priority: task.priority || 'Medium',
 		energy: task.energy || 'Quick',
 		context: task.context || '',
@@ -81,6 +108,7 @@ export function initTasks() {
 
 	const saved = localStorage.getItem(storageKey);
 	const savedModes = localStorage.getItem(modesStorageKey);
+	const savedSettings = localStorage.getItem(settingsStorageKey);
 
 	if (savedModes) {
 		try {
@@ -90,6 +118,16 @@ export function initTasks() {
 		}
 	} else {
 		modes.set(defaultModes);
+	}
+
+	if (savedSettings) {
+		try {
+			settings.set(normalizeSettings(JSON.parse(savedSettings)));
+		} catch {
+			settings.set(defaultSettings);
+		}
+	} else {
+		settings.set(defaultSettings);
 	}
 
 	if (saved) {
@@ -103,6 +141,7 @@ export function initTasks() {
 	}
 
 	hydrated = true;
+	settingsReady.set(true);
 
 	if (!subscribed) {
 		subscribed = true;
@@ -112,7 +151,14 @@ export function initTasks() {
 		modes.subscribe((list) => {
 			if (hydrated) localStorage.setItem(modesStorageKey, JSON.stringify(list));
 		});
+		settings.subscribe((value) => {
+			if (hydrated) localStorage.setItem(settingsStorageKey, JSON.stringify(value));
+		});
 	}
+}
+
+export function updateSettings(patch) {
+	settings.update((value) => normalizeSettings({ ...value, ...patch }));
 }
 
 export function addTask(task) {
@@ -159,11 +205,10 @@ export function deleteMode(modeToDelete) {
 	if (existingModes.filter((mode) => mode !== 'All Modes').length <= 1) return false;
 
 	const nextModes = existingModes.filter((mode) => mode !== modeToDelete);
-	const reassignedMode = getFallbackMode(nextModes);
 
 	modes.set(nextModes);
 	tasks.update((list) =>
-		list.map((task) => (task.mode === modeToDelete ? normalizeTask({ ...task, mode: reassignedMode }) : task))
+		list.map((task) => (task.mode === modeToDelete ? normalizeTask({ ...task, mode: 'All Modes' }) : task))
 	);
 
 	if (get(activeMode) === modeToDelete) {
@@ -207,6 +252,26 @@ export function moveTaskForward(id) {
 
 		const nextList = [...list];
 		[nextList[index - 1], nextList[index]] = [nextList[index], nextList[index - 1]];
+		return nextList;
+	});
+}
+
+export function reorderTaskToTarget(taskId, targetTaskId, placement = 'before') {
+	if (!taskId || !targetTaskId || taskId === targetTaskId) return;
+
+	tasks.update((list) => {
+		const fromIndex = list.findIndex((task) => task.id === taskId);
+		const targetIndex = list.findIndex((task) => task.id === targetTaskId);
+
+		if (fromIndex === -1 || targetIndex === -1 || fromIndex === targetIndex) {
+			return list;
+		}
+
+		const nextList = [...list];
+		const [movedTask] = nextList.splice(fromIndex, 1);
+		const insertBaseIndex = placement === 'after' ? targetIndex + 1 : targetIndex;
+		const adjustedTargetIndex = fromIndex < insertBaseIndex ? insertBaseIndex - 1 : insertBaseIndex;
+		nextList.splice(adjustedTargetIndex, 0, movedTask);
 		return nextList;
 	});
 }
@@ -286,6 +351,22 @@ export function openTaskActions(taskId) {
 		hoverCloseTimer = undefined;
 	}
 	hoveredTaskId.set(taskId);
+}
+
+export function startTaskDrag(taskId) {
+	draggedTask.set({ id: taskId, targetId: null, placement: 'before' });
+}
+
+export function updateTaskDragTarget(targetId, placement = 'before') {
+	draggedTask.update((value) => ({
+		...value,
+		targetId,
+		placement
+	}));
+}
+
+export function endTaskDrag() {
+	draggedTask.set({ id: null, targetId: null, placement: 'before' });
 }
 
 export function closeTaskActions(taskId = null) {

@@ -9,18 +9,26 @@
 	} from '$lib/dateDetection';
 	import {
 		closeTaskActions,
+		draggedTask,
+		endTaskDrag,
 		hoveredTaskId,
-		moveTaskForward,
+		modes,
 		openTaskActions,
 		pauseTask,
 		removeTask,
+		reorderTaskToTarget,
 		resumeTask,
 		scheduleTaskActionsClose,
+		startTaskDrag,
 		toggleTask,
+		updateTaskDragTarget,
 		updateTask
 	} from '$lib/tasks';
 
 	export let task;
+	export let showTypeControls = false;
+	export let showTypeBadge = false;
+	export let disableOptions = false;
 
 	let editing = false;
 	let pauseModalOpen = false;
@@ -34,7 +42,27 @@
 	let skipEditBlurSave = false;
 	let dueDateMenuOpen = false;
 	let dueDateMenuCloseTimer;
+	let dueDateMenuPosition = { top: 0, left: 0 };
+	let typeMenuOpen = false;
+	let typeMenuCloseTimer;
+	let typeMenuPosition = { top: 0, left: 0 };
+	let modePickerOpen = false;
 	let taskLineElement;
+	let dueDateButtonElement;
+	let typeButtonElement;
+	let dueDateMenuElement;
+	let typeMenuElement;
+	let rowDragActive = false;
+	let pendingDrag = null;
+	let suppressEditClick = false;
+	let rowDropPlacement = null;
+
+	const matrixTypes = [
+		'Urgent and Important',
+		'Urgent and not important',
+		'Important and not urgent',
+		'Not urgent and not important'
+	];
 
 	$: if (!editing) {
 		draftTitle = task.title;
@@ -48,12 +76,16 @@
 		dueDateDraft = task.dueDate || '';
 	}
 
-	$: actionsOpen = $hoveredTaskId === task.id || editing;
+	$: actionsOpen = !disableOptions && !$draggedTask.id && ($hoveredTaskId === task.id || editing);
 	$: hasPauseReason = Boolean(task.pauseReason?.trim());
 	$: rawEditDateMatch = detectActionDate(draftTitle);
 	$: editDateMatch =
 		rawEditDateMatch && rawEditDateMatch.phrase.toLowerCase() === editDismissedPhrase ? null : rawEditDateMatch;
 	$: editDatePreview = buildHighlightedDateHtml(draftTitle, editDateMatch);
+	$: selectableModes = $modes.filter((mode) => mode !== 'All Modes');
+	$: if (!$draggedTask.id) {
+		rowDropPlacement = null;
+	}
 
 	function energyIcon(energy) {
 		if (energy === 'Focus') return 'fa-bullseye';
@@ -67,7 +99,7 @@
 		skipEditBlurSave = true;
 		updateTask(task.id, {
 			title: nextTitle,
-			dueDate: editDateMatch?.dueDate || ''
+			dueDate: editDateMatch?.dueDate || task.dueDate || ''
 		});
 		editing = false;
 	}
@@ -138,6 +170,10 @@
 		pauseModalOpen = false;
 	}
 
+	function pauseNow() {
+		pauseTask(task.id, '');
+	}
+
 	function saveDueDate() {
 		updateTask(task.id, {
 			dueDate: dueDateDraft || ''
@@ -158,12 +194,32 @@
 		closeDueDateMenu();
 	}
 
-	function openDueDateMenu() {
+	function clearDueDate() {
+		updateTask(task.id, {
+			dueDate: ''
+		});
+		closeDueDateMenu();
+	}
+
+	function setFloatingMenuPosition(anchor, setPosition) {
+		if (!anchor?.getBoundingClientRect) return;
+
+		const rect = anchor.getBoundingClientRect();
+		setPosition({
+			top: rect.top - 8,
+			left: rect.left + rect.width / 2
+		});
+	}
+
+	function openDueDateMenu(anchor = dueDateButtonElement) {
 		if (dueDateMenuCloseTimer) {
 			clearTimeout(dueDateMenuCloseTimer);
 			dueDateMenuCloseTimer = undefined;
 		}
 
+		setFloatingMenuPosition(anchor, (value) => {
+			dueDateMenuPosition = value;
+		});
 		dueDateMenuOpen = true;
 	}
 
@@ -187,17 +243,154 @@
 		dueDateMenuOpen = false;
 	}
 
+	function openTypeMenu(anchor = typeButtonElement) {
+		if (typeMenuCloseTimer) {
+			clearTimeout(typeMenuCloseTimer);
+			typeMenuCloseTimer = undefined;
+		}
+
+		setFloatingMenuPosition(anchor, (value) => {
+			typeMenuPosition = value;
+		});
+		typeMenuOpen = true;
+	}
+
+	function scheduleTypeMenuClose(delay = 3000) {
+		if (typeMenuCloseTimer) {
+			clearTimeout(typeMenuCloseTimer);
+		}
+
+		typeMenuCloseTimer = setTimeout(() => {
+			typeMenuOpen = false;
+			typeMenuCloseTimer = undefined;
+		}, delay);
+	}
+
+	function closeTypeMenu() {
+		if (typeMenuCloseTimer) {
+			clearTimeout(typeMenuCloseTimer);
+			typeMenuCloseTimer = undefined;
+		}
+
+		typeMenuOpen = false;
+	}
+
+	function setMatrixType(value) {
+		updateTask(task.id, {
+			matrixType: value
+		});
+		closeTypeMenu();
+	}
+
+	function setTaskMode(mode) {
+		updateTask(task.id, {
+			mode
+		});
+		modePickerOpen = false;
+	}
+
 	function handleTaskMouseLeave() {
 		if (editing) return;
 		scheduleTaskActionsClose(task.id);
 	}
 
+	function isInteractiveTarget(target) {
+		return Boolean(target?.closest?.('button, a, input, textarea, select'));
+	}
+
+	function handleRowPointerDown(event) {
+		if (editing || pauseModalOpen || dueDateModalOpen || isInteractiveTarget(event.target)) return;
+
+		pendingDrag = {
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY
+		};
+	}
+
 	function handleWindowPointerDown(event) {
-		if (!actionsOpen || editing || pauseModalOpen || dueDateModalOpen) return;
+		if (disableOptions || !actionsOpen || editing || pauseModalOpen || dueDateModalOpen) return;
 		if (taskLineElement?.contains(event.target)) return;
+		if (dueDateMenuElement?.contains(event.target)) return;
+		if (typeMenuElement?.contains(event.target)) return;
 
 		closeDueDateMenu();
+		closeTypeMenu();
 		closeTaskActions(task.id);
+	}
+
+	function handleWindowPointerMove(event) {
+		if (!pendingDrag || editing || pauseModalOpen || dueDateModalOpen) return;
+		if (event.pointerId !== pendingDrag.pointerId) return;
+
+		const movedX = Math.abs(event.clientX - pendingDrag.startX);
+		const movedY = Math.abs(event.clientY - pendingDrag.startY);
+		if (movedX < 8 && movedY < 8) return;
+
+		if (!rowDragActive) {
+			rowDragActive = true;
+			suppressEditClick = true;
+			startTaskDrag(task.id);
+			closeTaskActions();
+			document.body.classList.add('task-drag-active');
+		}
+	}
+
+	function finishPointerDrag() {
+		pendingDrag = null;
+		if (rowDragActive) {
+			if ($draggedTask.id && $draggedTask.targetId) {
+				reorderTaskToTarget($draggedTask.id, $draggedTask.targetId, $draggedTask.placement);
+			}
+			rowDragActive = false;
+			endTaskDrag();
+			document.body.classList.remove('task-drag-active');
+			setTimeout(() => {
+				suppressEditClick = false;
+			}, 0);
+		}
+	}
+
+	function handleRowPointerMove(event) {
+		if (!$draggedTask.id || $draggedTask.id === task.id || editing || pauseModalOpen || dueDateModalOpen) return;
+		const rect = taskLineElement?.getBoundingClientRect?.();
+		if (!rect) return;
+
+		const placement = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+		rowDropPlacement = placement;
+		updateTaskDragTarget(task.id, placement);
+	}
+
+	function handleRowPointerLeave() {
+		if ($draggedTask.targetId === task.id) {
+			updateTaskDragTarget(null);
+		}
+		rowDropPlacement = null;
+	}
+
+	function handleTaskTextActivate(event) {
+		if (suppressEditClick || rowDragActive || $draggedTask.id) {
+			event?.preventDefault?.();
+			return;
+		}
+
+		startEditing();
+	}
+
+	function toggleActionMenu(event) {
+		event?.stopPropagation?.();
+		event?.preventDefault?.();
+		if (disableOptions) return;
+
+		if (actionsOpen) {
+			closeTaskActions(task.id);
+			closeDueDateMenu();
+			closeTypeMenu();
+			modePickerOpen = false;
+			return;
+		}
+
+		openTaskActions(task.id);
 	}
 
 	function handlePauseBackdropKeydown(event) {
@@ -225,15 +418,24 @@
 
 	onMount(() => {
 		window.addEventListener('pointerdown', handleWindowPointerDown);
+		window.addEventListener('pointermove', handleWindowPointerMove);
+		window.addEventListener('pointerup', finishPointerDrag);
+		window.addEventListener('pointercancel', finishPointerDrag);
 
 		return () => {
 			window.removeEventListener('pointerdown', handleWindowPointerDown);
+			window.removeEventListener('pointermove', handleWindowPointerMove);
+			window.removeEventListener('pointerup', finishPointerDrag);
+			window.removeEventListener('pointercancel', finishPointerDrag);
 		};
 	});
 
 	onDestroy(() => {
 		if (dueDateMenuCloseTimer) {
 			clearTimeout(dueDateMenuCloseTimer);
+		}
+		if (typeMenuCloseTimer) {
+			clearTimeout(typeMenuCloseTimer);
 		}
 	});
 </script>
@@ -243,8 +445,13 @@
 	class="task-line"
 	role="presentation"
 	style={`opacity: ${task.done ? '0.72' : '1'};`}
-	onmouseenter={() => openTaskActions(task.id)}
+	class:task-line-dragging={rowDragActive}
+	class:task-line-drop-before={rowDropPlacement === 'before'}
+	class:task-line-drop-after={rowDropPlacement === 'after'}
+	onmouseenter={() => !disableOptions && openTaskActions(task.id)}
 	onmouseleave={handleTaskMouseLeave}
+	onpointermove={handleRowPointerMove}
+	onpointerleave={handleRowPointerLeave}
 >
 	{#if editing}
 		<div class="d-flex align-items-start justify-content-between gap-3 py-2 task-row-shell">
@@ -279,7 +486,11 @@
 			</div>
 		</div>
 	{:else}
-		<div class="d-flex align-items-start justify-content-between gap-3 py-2 task-row-shell">
+		<div
+			class="d-flex align-items-start justify-content-between gap-3 py-2 task-row-shell"
+			role="presentation"
+			onpointerdown={handleRowPointerDown}
+		>
 			<div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
 				<div class="min-w-0 flex-grow-1">
 					{#if task.paused}
@@ -287,6 +498,16 @@
 							<div class="task-title text-warning">
 								<i class="fa-solid fa-pause me-2"></i>Paused
 							</div>
+							<button
+								class="task-inline-link"
+								type="button"
+								onclick={() => {
+									pauseReasonDraft = task.pauseReason || '';
+									pauseModalOpen = true;
+								}}
+							>
+								{hasPauseReason ? 'Edit reason' : 'Add reason'}
+							</button>
 						</div>
 						{#if hasPauseReason}
 							<div class="paused-reason mt-1">{task.pauseReason}</div>
@@ -299,24 +520,46 @@
 							role="button"
 							tabindex="0"
 							aria-label={`Edit ${task.title}`}
-							onclick={startEditing}
-							onkeydown={(event) => ['Enter', ' '].includes(event.key) && startEditing()}
+							onclick={handleTaskTextActivate}
+							onkeydown={(event) => ['Enter', ' '].includes(event.key) && handleTaskTextActivate(event)}
 						>
 							<div class={`task-title ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						</div>
-						{#if task.dueDate}
-							<div class="task-due-note mt-1">
-								<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
+						{#if task.dueDate || (showTypeBadge && task.matrixType)}
+							<div class="task-meta-row mt-1">
+								{#if task.dueDate}
+									<div class="task-due-note">
+										<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
+									</div>
+								{/if}
+								{#if showTypeBadge && task.matrixType}
+									<div class="task-matrix-note">{task.matrixType}</div>
+								{/if}
 							</div>
 						{/if}
 					{/if}
 				</div>
 			</div>
+			<button
+				class={`icon-button task-options-trigger ${actionsOpen ? 'active' : ''}`}
+				type="button"
+				aria-label={`Open options for ${task.title}`}
+				aria-expanded={actionsOpen}
+				onclick={toggleActionMenu}
+			>
+				<i class="fa-solid fa-ellipsis"></i>
+			</button>
 		</div>
 	{/if}
 
 	<div class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`} role="presentation">
 		{#if task.paused}
+			<button
+				class="icon-button"
+				type="button"
+				aria-label={`Change mode for ${task.title}`}
+				onclick={() => (modePickerOpen = true)}
+			><i class="fa-solid fa-layer-group"></i></button>
 			<button
 				class="icon-button"
 				type="button"
@@ -328,38 +571,136 @@
 			<button class="icon-button" type="button" aria-label={`Edit pause reason for ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-comment-dots"></i></button>
 		{:else}
 			<button class="icon-button" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
-			<button class="icon-button" type="button" aria-label={`Pause ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-pause"></i></button>
+			<button class="icon-button" type="button" aria-label={`Pause ${task.title}`} onclick={pauseNow}><i class="fa-solid fa-pause"></i></button>
 			<div
 				class="task-inline-action-group"
 				role="presentation"
-				onmouseenter={openDueDateMenu}
+				onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
 				onmouseleave={() => scheduleDueDateMenuClose()}
 			>
 				<button
+					bind:this={dueDateButtonElement}
 					class="icon-button"
 					type="button"
 					aria-label={`Set due date for ${task.title}`}
-					onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu())}
+					onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}
 				><i class="fa-regular fa-calendar"></i></button>
-				{#if dueDateMenuOpen}
-					<div class="task-inline-submenu" role="presentation" onmouseenter={openDueDateMenu} onmouseleave={() => scheduleDueDateMenuClose()}>
-						<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
-						<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
-						<button class="task-inline-submenu-button" type="button" onclick={() => {
-							closeDueDateMenu();
-							dueDateModalOpen = true;
-						}}>Later</button>
-					</div>
-				{/if}
 			</div>
+			<button
+				class="icon-button"
+				type="button"
+				aria-label={`Change mode for ${task.title}`}
+				onclick={() => (modePickerOpen = true)}
+			><i class="fa-solid fa-layer-group"></i></button>
+			{#if showTypeControls}
+				<div
+					class="task-inline-action-group"
+					role="presentation"
+					onmouseenter={() => openTypeMenu(typeButtonElement)}
+					onmouseleave={() => scheduleTypeMenuClose()}
+				>
+					<button
+						bind:this={typeButtonElement}
+						class="icon-button"
+						type="button"
+						aria-label={`Set type for ${task.title}`}
+						onclick={() => (typeMenuOpen ? closeTypeMenu() : openTypeMenu(typeButtonElement))}
+					><i class="fa-solid fa-table-cells-large"></i></button>
+				</div>
+			{/if}
 			{#if !editing}
 				<button class="icon-button" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
 			{/if}
-			<button class="icon-button" type="button" aria-label={`Move ${task.title} forward`} onclick={() => moveTaskForward(task.id)}><i class="fa-solid fa-arrow-up"></i></button>
 		{/if}
 		<button class="icon-button" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
 	</div>
 </div>
+
+{#if dueDateMenuOpen}
+	<div
+		use:portal
+		bind:this={dueDateMenuElement}
+		class="task-inline-submenu task-inline-submenu-floating"
+		role="presentation"
+		style={`top:${dueDateMenuPosition.top}px;left:${dueDateMenuPosition.left}px;`}
+		onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
+		onmouseleave={() => scheduleDueDateMenuClose()}
+	>
+		<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
+		<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
+		<button class="task-inline-submenu-button" type="button" onclick={clearDueDate}>Remove date</button>
+		<button class="task-inline-submenu-button" type="button" onclick={() => {
+			closeDueDateMenu();
+			dueDateModalOpen = true;
+		}}>Later</button>
+	</div>
+{/if}
+
+{#if modePickerOpen}
+	<div
+		use:portal
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close mode picker"
+		onclick={() => (modePickerOpen = false)}
+		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && (modePickerOpen = false)}
+	>
+		<div
+			class="pause-modal mode-picker-sheet"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby={`mode-picker-title-${task.id}`}
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && (modePickerOpen = false)}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Change Mode</div>
+					<h2 class="h6 mt-2 mb-1" id={`mode-picker-title-${task.id}`}>{task.title}</h2>
+					<p class="soft-text small mb-0">Move this action into the mode that fits best right now.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close mode picker" onclick={() => (modePickerOpen = false)}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<div class="mode-picker-grid">
+				{#each selectableModes as mode}
+					<button
+						class={`mode-picker-button ${task.mode === mode ? 'active' : ''}`}
+						type="button"
+						onclick={() => setTaskMode(mode)}
+					>
+						<span>{mode}</span>
+						{#if task.mode === mode}
+							<i class="fa-solid fa-check"></i>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if typeMenuOpen}
+	<div
+		use:portal
+		bind:this={typeMenuElement}
+		class="task-inline-submenu task-inline-submenu-stack task-inline-submenu-floating"
+		role="presentation"
+		style={`top:${typeMenuPosition.top}px;left:${typeMenuPosition.left}px;`}
+		onmouseenter={() => openTypeMenu(typeButtonElement)}
+		onmouseleave={() => scheduleTypeMenuClose()}
+	>
+		{#each matrixTypes as matrixType}
+			<button class="task-inline-submenu-button" type="button" onclick={() => setMatrixType(matrixType)}>
+				{matrixType}
+			</button>
+		{/each}
+	</div>
+{/if}
 
 {#if pauseModalOpen}
 	<div
@@ -402,7 +743,6 @@
 
 			<div class="d-flex justify-content-end gap-2 mt-3">
 				<button class="toolbar-button" type="button" onclick={() => (pauseModalOpen = false)}>Cancel</button>
-				<button class="toolbar-button" type="button" onclick={savePause}>Pause without reason</button>
 				<button class="toolbar-button active" type="button" onclick={savePause}>Save reason</button>
 			</div>
 		</div>

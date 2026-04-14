@@ -1,5 +1,6 @@
 <script>
 	import { onDestroy, onMount, tick } from 'svelte';
+	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 	import {
 		buildHighlightedDateHtml,
@@ -10,7 +11,7 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import { activeMode, addTask, clearDoneForMode, modeMatches, tasks } from '$lib/tasks';
+	import { activeMode, addTask, clearDoneForMode, modeMatches, settings, settingsReady, tasks } from '$lib/tasks';
 
 	let search = '';
 	let showDone = false;
@@ -26,37 +27,23 @@
 	let actionDismissedPhrases = [];
 
 	$: modeTasks = $tasks.filter((task) => modeMatches(task, $activeMode));
-	$: searchedTasks = modeTasks.filter((task) => {
+	$: modalSearchedTasks = modeTasks.filter((task) => {
 		const matchesSearch =
 			!search ||
 			task.title.toLowerCase().includes(search.toLowerCase());
 
 		return matchesSearch;
 	});
-	$: openTasks = searchedTasks.filter((task) => !task.done);
+	$: openTasks = modeTasks.filter((task) => !task.done);
 	$: activeActions = openTasks.filter((task) => !task.paused);
 	$: pausedActions = openTasks.filter((task) => task.paused);
-	$: completedTasks = searchedTasks.filter((task) => task.done);
+	$: completedTasks = modeTasks.filter((task) => task.done);
 	$: actionCount = actionDraft
 		.split('\n')
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = !showDone && pausedActions.length > 0 && (!pausedSection || !pausedVisible);
 	$: actionLines = actionDraft.split('\n');
-	$: actionDatePreviews = actionLines
-		.map((line, index) => {
-			const match = detectActionDate(line);
-
-			if (!match) return null;
-			if (match.phrase.toLowerCase() === (actionDismissedPhrases[index] || '')) return null;
-
-			return {
-				index,
-				match,
-				html: buildHighlightedDateHtml(line, match)
-			};
-		})
-		.filter(Boolean);
 	$: actionHighlightHtml = actionLines
 		.map((line, index) => {
 			const match = detectActionDate(line);
@@ -100,6 +87,11 @@
 		actionDismissedPhrases = actionLines.map((_, index) => actionDismissedPhrases[index] || '');
 	}
 
+	function getEffectiveActionDateMatch(line, index) {
+		const match = detectActionDate(line);
+		return match && match.phrase.toLowerCase() !== (actionDismissedPhrases[index] || '') ? match : null;
+	}
+
 	function closeSearch() {
 		searchOpen = false;
 		search = '';
@@ -115,7 +107,7 @@
 		const lines = actionDraft.split('\n');
 		const entries = lines
 			.map((line, index) => {
-				const match = detectActionDate(line);
+				const match = getEffectiveActionDateMatch(line, index);
 				const title = stripDetectedDateText(line, match);
 				if (!title) return null;
 				return { title, dueDate: match?.dueDate || '' };
@@ -124,7 +116,7 @@
 
 		if (!entries.length) return;
 
-		const currentMode = $activeMode === 'All Modes' ? 'Work Sprint' : $activeMode;
+		const currentMode = $activeMode;
 
 		for (const entry of entries) {
 			addTask({
@@ -204,43 +196,42 @@
 			}
 		}
 
+		function handleMobileSearch() {
+			openSearch();
+		}
+
 		window.addEventListener('keydown', handleKeydown);
-		return () => window.removeEventListener('keydown', handleKeydown);
+		window.addEventListener('karya:mobile-search', handleMobileSearch);
+		return () => {
+			window.removeEventListener('keydown', handleKeydown);
+			window.removeEventListener('karya:mobile-search', handleMobileSearch);
+		};
 	});
 
 	onDestroy(() => pausedObserver?.disconnect());
 </script>
 
-<div class="soft-text small mb-3 px-1">
-	Press `Ctrl + F` to search. Press `Escape` to hide.
-</div>
-
 <div class="actions-panel-shell">
 	<section class="glass-panel rounded-4 p-4 fade-up">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3 soft-text small">
-				<span>{modeTasks.filter((task) => !task.done).length} open</span>
+				<span>{activeActions.length} open</span>
+				{#if pausedActions.length}
+					<span>{pausedActions.length} paused</span>
+				{/if}
 				{#if showDone}
 					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
 				{/if}
 			</div>
-			<button class="btn btn-brand" type="button" onclick={openActionModal}>
-				<i class="fa-solid fa-plus me-2"></i>Add Action
-			</button>
-		</div>
-
-		{#if searchOpen}
-			<div class="mb-4 d-flex align-items-center gap-2">
-				<input
-					bind:this={searchInput}
-					class="form-control"
-					type="text"
-					bind:value={search}
-					placeholder="Search actions"
-				/>
-				<button class="toolbar-button" type="button" onclick={closeSearch}>Close</button>
+			<div class="d-flex align-items-center gap-2">
+				<button class="icon-button search-launch-button" type="button" aria-label="Search actions" onclick={openSearch}>
+					<i class="fa-solid fa-magnifying-glass"></i>
+				</button>
+				<button class="btn btn-brand" type="button" onclick={openActionModal}>
+					<i class="fa-solid fa-plus me-2"></i>Add Action
+				</button>
 			</div>
-		{/if}
+		</div>
 
 		{#if showDone}
 			{#if completedTasks.length}
@@ -251,8 +242,14 @@
 				>
 					<div class="list-heading">Completed Actions</div>
 					<div class="task-list">
-						{#each completedTasks as task}
-							<TaskRow {task} />
+						{#each completedTasks as task (task.id)}
+							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+								<TaskRow
+									{task}
+									disableOptions={searchOpen}
+									showTypeBadge={$settingsReady && $settings.enableMatrixCategories}
+								/>
+							</div>
 						{/each}
 					</div>
 				</section>
@@ -267,8 +264,14 @@
 				{#if activeActions.length}
 					<section class="mb-4">
 						<div class="task-list">
-							{#each activeActions as task}
-								<TaskRow {task} />
+							{#each activeActions as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow
+										{task}
+										disableOptions={searchOpen}
+										showTypeBadge={$settingsReady && $settings.enableMatrixCategories}
+									/>
+								</div>
 							{/each}
 						</div>
 					</section>
@@ -278,8 +281,14 @@
 					<section class="mb-4" bind:this={pausedSection}>
 						<div class="list-heading">Paused Actions</div>
 						<div class="task-list">
-							{#each pausedActions as task}
-								<TaskRow {task} />
+							{#each pausedActions as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow
+										{task}
+										disableOptions={searchOpen}
+										showTypeBadge={$settingsReady && $settings.enableMatrixCategories}
+									/>
+								</div>
 							{/each}
 						</div>
 					</section>
@@ -375,16 +384,6 @@
 				></textarea>
 			</div>
 
-			{#if actionDatePreviews.length}
-				<div class="date-detection-stack mt-3">
-					{#each actionDatePreviews as preview}
-						<div class="soft-text small">
-							Line {preview.index + 1}: date detected for {formatDetectedDate(preview.match.dueDate)}. Press Escape on the highlighted date to keep it as text.
-						</div>
-					{/each}
-				</div>
-			{/if}
-
 			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
 				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
 				{#if actionCount}
@@ -397,6 +396,65 @@
 				<button class="toolbar-button active" type="button" onclick={submitActions} disabled={!actionCount}>
 					Add {actionCount || ''} {actionCount === 1 ? 'Action' : 'Actions'}
 				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if searchOpen}
+	<div
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close search"
+		onclick={closeSearch}
+		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
+	>
+		<div
+			class="pause-modal search-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="search-actions-title-inbox"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && closeSearch()}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Search</div>
+					<h2 class="h6 mt-2 mb-1" id="search-actions-title-inbox">Search Actions</h2>
+					<p class="soft-text small mb-0">Search inside the current All Actions view.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close search" onclick={closeSearch}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<input
+				bind:this={searchInput}
+				class="form-control"
+				type="text"
+				bind:value={search}
+				placeholder="Search actions"
+			/>
+
+			<div class="search-results-shell mt-3">
+				{#if search.trim()}
+					<div class="soft-text small mb-2">{modalSearchedTasks.length} match{modalSearchedTasks.length === 1 ? '' : 'es'}</div>
+					{#if modalSearchedTasks.length}
+						<div class="search-results-list task-list">
+							{#each modalSearchedTasks as task (task.id)}
+								<div class="search-result-row">
+									<TaskRow {task} showTypeBadge={$settingsReady && $settings.enableMatrixCategories} />
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="empty-state">No actions match this search.</div>
+					{/if}
+				{:else}
+					<div class="empty-state">Start typing to search actions in All Actions.</div>
+				{/if}
 			</div>
 		</div>
 	</div>
