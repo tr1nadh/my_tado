@@ -29,6 +29,7 @@
 	export let task;
 	export let showTodayStarControls = false;
 	export let disableOptions = false;
+	export let showModeBadge = false;
 
 	let editing = false;
 	let pauseModalOpen = false;
@@ -89,6 +90,7 @@
 			: selectedTodayStar.value === 'yellow'
 				? 'fa-regular fa-star'
 				: 'fa-solid fa-star';
+	$: visibleModeBadge = showModeBadge && Boolean(task.mode) && task.mode !== 'All Modes';
 	$: if (starMenuOpen && $hoveredTaskId !== task.id) {
 		closeStarMenu();
 	}
@@ -100,6 +102,28 @@
 		if (energy === 'Focus') return 'fa-bullseye';
 		if (energy === 'Admin') return 'fa-phone-volume';
 		return 'fa-bolt';
+	}
+
+	function getModeBadgeMeta(mode) {
+		const normalizedMode = String(mode || '').toLowerCase();
+
+		if (normalizedMode.includes('work')) {
+			return { icon: 'fa-solid fa-briefcase', tone: 'work' };
+		}
+		if (normalizedMode.includes('home')) {
+			return { icon: 'fa-solid fa-house', tone: 'home' };
+		}
+		if (normalizedMode.includes('errand')) {
+			return { icon: 'fa-solid fa-bag-shopping', tone: 'errands' };
+		}
+		if (normalizedMode.includes('family')) {
+			return { icon: 'fa-solid fa-people-group', tone: 'family' };
+		}
+		if (normalizedMode.includes('health')) {
+			return { icon: 'fa-solid fa-heart-pulse', tone: 'health' };
+		}
+
+		return { icon: 'fa-solid fa-layer-group', tone: 'default' };
 	}
 
 	function saveEdit() {
@@ -530,6 +554,14 @@
 						{:else}
 							<div class={`task-title mt-1 ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						{/if}
+						{#if visibleModeBadge}
+							<div class="task-meta-row mt-1">
+								<div class={`task-mode-meta ${getModeBadgeMeta(task.mode).tone}`} aria-label={`Mode ${task.mode}`}>
+									<i class={getModeBadgeMeta(task.mode).icon} aria-hidden="true"></i>
+									<span>{task.mode}</span>
+								</div>
+							</div>
+						{/if}
 					{:else}
 						<div
 							class="d-flex flex-wrap align-items-center gap-2 task-text-line"
@@ -541,11 +573,17 @@
 						>
 							<div class={`task-title ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						</div>
-						{#if task.dueDate}
+						{#if task.dueDate || visibleModeBadge}
 							<div class="task-meta-row mt-1">
 								{#if task.dueDate}
 									<div class="task-due-note">
 										<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
+									</div>
+								{/if}
+								{#if visibleModeBadge}
+									<div class={`task-mode-meta ${getModeBadgeMeta(task.mode).tone}`} aria-label={`Mode ${task.mode}`}>
+										<i class={getModeBadgeMeta(task.mode).icon} aria-hidden="true"></i>
+										<span>{task.mode}</span>
 									</div>
 								{/if}
 							</div>

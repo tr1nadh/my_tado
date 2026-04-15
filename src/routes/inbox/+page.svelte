@@ -27,6 +27,7 @@
 	let actionDismissedPhrases = [];
 
 	$: modeTasks = $tasks.filter((task) => modeMatches(task, $activeMode));
+	$: showModeBadge = $activeMode === 'All Modes';
 	$: modalSearchedTasks = modeTasks.filter((task) => {
 		const matchesSearch =
 			!search ||
@@ -244,7 +245,7 @@
 					<div class="task-list">
 						{#each completedTasks as task (task.id)}
 							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-								<TaskRow {task} disableOptions={searchOpen} />
+								<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
 							</div>
 						{/each}
 					</div>
@@ -262,7 +263,7 @@
 						<div class="task-list">
 							{#each activeActions as task (task.id)}
 								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow {task} disableOptions={searchOpen} />
+									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
 								</div>
 							{/each}
 						</div>
@@ -275,7 +276,7 @@
 						<div class="task-list">
 							{#each pausedActions as task (task.id)}
 								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow {task} disableOptions={searchOpen} />
+									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
 								</div>
 							{/each}
 						</div>
@@ -433,7 +434,7 @@
 						<div class="search-results-list task-list">
 							{#each modalSearchedTasks as task (task.id)}
 								<div class="search-result-row">
-									<TaskRow {task} />
+									<TaskRow {task} {showModeBadge} />
 								</div>
 							{/each}
 						</div>

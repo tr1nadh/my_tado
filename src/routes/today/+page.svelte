@@ -1,4 +1,5 @@
 <script>
+	import { browser } from '$app/environment';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -22,6 +23,7 @@
 		rescheduleTasksToToday,
 		resumeTask,
 		settingsReady,
+		todayStarOptions,
 		toggleTask,
 		tasks
 	} from '$lib/tasks';
@@ -38,10 +40,19 @@
 	let pausedObserver;
 	let panelDirection = 1;
 	let actionDismissedPhrases = [];
-	let focusMode = false;
+	const focusHoldDuration = 520;
+
+	let focusView = 'overview';
 	let focusIndex = 0;
+	let progressiveFocusIndex = 0;
 	let focusPauseModalOpen = false;
 	let focusPauseReasonDraft = '';
+	let focusPressing = false;
+	let focusHoldProgress = 0;
+	let focusPressTimer;
+	let focusHoldAnimationFrame;
+	let focusHoldStart = 0;
+	let focusHoldConsumed = false;
 	const todayDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 	const todayStarOrder = ['red', 'blue', 'yellow', 'none'];
@@ -52,6 +63,116 @@
 			const rightRank = todayStarOrder.indexOf(right.todayStar || 'none');
 			return leftRank - rightRank;
 		});
+	}
+
+	function sortForFocusFlow(list) {
+		return [...list].sort((left, right) => {
+			const leftStarRank = todayStarOrder.indexOf(left.todayStar || 'none');
+			const rightStarRank = todayStarOrder.indexOf(right.todayStar || 'none');
+			if (leftStarRank !== rightStarRank) return leftStarRank - rightStarRank;
+
+			const leftOverdue = Number(isOverdue(left.dueDate));
+			const rightOverdue = Number(isOverdue(right.dueDate));
+			if (leftOverdue !== rightOverdue) return rightOverdue - leftOverdue;
+
+			if (left.dueDate !== right.dueDate) return String(left.dueDate || '').localeCompare(String(right.dueDate || ''));
+			return (right.createdAt || 0) - (left.createdAt || 0);
+		});
+	}
+
+	function enterFocusMode(mode) {
+		focusView = mode;
+		showDone = false;
+		focusIndex = 0;
+		if (mode === 'progressive') {
+			progressiveFocusIndex = 0;
+		}
+	}
+
+	function exitFocusMode() {
+		focusView = 'overview';
+		focusPauseModalOpen = false;
+	}
+
+	function toggleFocusMode() {
+		if (focusView === 'overview') {
+			enterFocusMode('progressive');
+			return;
+		}
+
+		exitFocusMode();
+	}
+
+	function stepFocusHold() {
+		if (!focusPressing) return;
+
+		focusHoldProgress = Math.min((performance.now() - focusHoldStart) / focusHoldDuration, 1);
+		if (focusHoldProgress < 1) {
+			focusHoldAnimationFrame = requestAnimationFrame(stepFocusHold);
+		}
+	}
+
+	function clearFocusHold(clearConsumed = false) {
+		if (focusPressTimer) {
+			clearTimeout(focusPressTimer);
+			focusPressTimer = undefined;
+		}
+		if (focusHoldAnimationFrame) {
+			cancelAnimationFrame(focusHoldAnimationFrame);
+			focusHoldAnimationFrame = undefined;
+		}
+
+		focusPressing = false;
+		focusHoldProgress = 0;
+		if (clearConsumed) {
+			focusHoldConsumed = false;
+		}
+	}
+
+	function startFocusHold(event) {
+		if (event.button !== undefined && event.button !== 0) return;
+
+		clearFocusHold(true);
+		focusPressing = true;
+		focusHoldStart = performance.now();
+		focusHoldAnimationFrame = requestAnimationFrame(stepFocusHold);
+		focusPressTimer = setTimeout(() => {
+			focusHoldConsumed = true;
+			clearFocusHold();
+			enterFocusMode('single');
+		}, focusHoldDuration);
+	}
+
+	function cancelFocusHold() {
+		clearFocusHold();
+	}
+
+	function handleFocusButtonPointerUp(event) {
+		if (event.button !== undefined && event.button !== 0) return;
+
+		const shouldToggle = focusPressing && !focusHoldConsumed;
+		clearFocusHold();
+		if (shouldToggle) {
+			toggleFocusMode();
+		}
+	}
+
+	function handleFocusButtonContextMenu(event) {
+		event.preventDefault();
+		clearFocusHold(true);
+		enterFocusMode('single');
+	}
+
+	function handleFocusButtonKeydown(event) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		toggleFocusMode();
+	}
+
+	function showNextProgressiveBucket() {
+		if (progressiveFocusIndex < nonEmptyProgressiveBuckets.length - 1) {
+			progressiveFocusIndex += 1;
+		}
 	}
 
 	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
@@ -67,14 +188,35 @@
 	$: pausedActions = sortByTodayStar(scopedTasks.filter((task) => !task.done && task.paused));
 	$: overdueActiveActions = sortByTodayStar(overdueTasks.filter((task) => !task.paused));
 	$: todayActiveActions = sortByTodayStar(todayTasks.filter((task) => !task.paused));
-	$: focusActions = sortByTodayStar([...overdueTasks, ...todayTasks]);
+	$: activeTodayActions = sortForFocusFlow([...overdueActiveActions, ...todayActiveActions]);
+	$: progressiveBuckets = todayStarOrder.map((star) => ({
+		star,
+		tasks: activeTodayActions.filter((task) => (task.todayStar || 'none') === star)
+	}));
+	$: nonEmptyProgressiveBuckets = progressiveBuckets.filter((bucket) => bucket.tasks.length);
+	$: if (!nonEmptyProgressiveBuckets.length) {
+		progressiveFocusIndex = 0;
+	} else if (progressiveFocusIndex > nonEmptyProgressiveBuckets.length - 1) {
+		progressiveFocusIndex = nonEmptyProgressiveBuckets.length - 1;
+	}
+	$: currentProgressiveBucket = nonEmptyProgressiveBuckets[progressiveFocusIndex] || null;
+	$: nextProgressiveBuckets = currentProgressiveBucket
+		? nonEmptyProgressiveBuckets.slice(progressiveFocusIndex + 1)
+		: [];
+	$: currentProgressiveStarMeta = todayStarOptions.find((option) => option.value === currentProgressiveBucket?.star) || null;
+	$: currentProgressiveBucketTitle = currentProgressiveBucket
+		? currentProgressiveBucket.star === 'none'
+			? 'Remaining actions'
+			: `${currentProgressiveBucket.star[0].toUpperCase()}${currentProgressiveBucket.star.slice(1)} star actions`
+		: 'Today is clear';
+	$: focusActions = activeTodayActions;
 	$: if (!focusActions.length) {
 		focusIndex = 0;
-		focusMode = false;
 	} else if (focusIndex > focusActions.length - 1) {
 		focusIndex = focusActions.length - 1;
 	}
 	$: activeFocusTask = focusActions[focusIndex] || null;
+	$: focusModeLabel = focusView === 'single' ? 'Single Action' : 'Focus Today';
 	$: if (!focusPauseModalOpen) {
 		focusPauseReasonDraft = activeFocusTask?.pauseReason || '';
 	}
@@ -208,14 +350,6 @@
 		showDone = false;
 	}
 
-	function toggleFocusMode() {
-		focusMode = !focusMode;
-		if (focusMode) {
-			showDone = false;
-			focusIndex = 0;
-		}
-	}
-
 	function showPrevFocus() {
 		if (!focusActions.length) return;
 		focusIndex = (focusIndex - 1 + focusActions.length) % focusActions.length;
@@ -232,7 +366,7 @@
 		toggleTask(activeFocusTask.id);
 
 		if (focusActions.length <= 1) {
-			focusMode = false;
+			exitFocusMode();
 			focusIndex = 0;
 			return;
 		}
@@ -299,7 +433,7 @@
 				}
 				if (searchOpen) closeSearch();
 				showDone = false;
-				focusMode = false;
+				exitFocusMode();
 			}
 		}
 
@@ -315,7 +449,10 @@
 		};
 	});
 
-	onDestroy(() => pausedObserver?.disconnect());
+	onDestroy(() => {
+		pausedObserver?.disconnect();
+		clearFocusHold(true);
+	});
 </script>
 
 <div class="actions-panel-shell">
@@ -337,8 +474,21 @@
 				<button class="icon-button search-launch-button" type="button" aria-label="Search actions" onclick={openSearch}>
 					<i class="fa-solid fa-magnifying-glass"></i>
 				</button>
-				<button class={`toolbar-button ${focusMode ? 'active' : ''}`} type="button" onclick={toggleFocusMode}>
-					<i class="fa-solid fa-bullseye me-2"></i>{focusMode ? 'Exit focus' : 'Focus mode'}
+				<button
+					class={`toolbar-button focus-mode-trigger ${focusView !== 'overview' ? 'active' : ''} ${focusPressing ? 'pressing' : ''}`}
+					type="button"
+					aria-label={focusView === 'overview' ? 'Enter Focus Today' : `Exit ${focusModeLabel}`}
+					title="Click for semi focus. Long press or right-click for single action focus."
+					style={`--focus-hold-progress:${focusHoldProgress};`}
+					oncontextmenu={handleFocusButtonContextMenu}
+					onkeydown={handleFocusButtonKeydown}
+					onpointerdown={startFocusHold}
+					onpointerup={handleFocusButtonPointerUp}
+					onpointercancel={cancelFocusHold}
+					onpointerleave={cancelFocusHold}
+				>
+					<i class={`${focusView === 'single' ? 'fa-solid fa-bullseye' : 'fa-solid fa-star'} me-2`}></i>
+					{focusView === 'overview' ? 'Focus mode' : `Exit ${focusModeLabel}`}
 				</button>
 				<button class="btn btn-brand" type="button" onclick={openActionModal}>
 					<i class="fa-solid fa-plus me-2"></i>Add Action
@@ -362,6 +512,7 @@
 										disableOptions={searchOpen}
 										showTodayStarBadge
 										showTodayStarControls
+										showModeBadge
 									/>
 								</div>
 							{/each}
@@ -370,8 +521,73 @@
 			{:else}
 				<div class="empty-state">No completed actions right now.</div>
 			{/if}
-		{:else if focusMode}
-			<div class="empty-state">Focus mode is active.</div>
+		{:else if focusView === 'progressive'}
+			<div class="today-focus-flow">
+				<div class="today-focus-flow-head">
+					<div>
+						<div class="section-label">Focus Today</div>
+						{#if currentProgressiveBucket}
+							<div class="today-focus-flow-title">Now working: {currentProgressiveBucketTitle}</div>
+							<div class="soft-text small mt-2">
+								{currentProgressiveStarMeta?.meaning || 'These are the remaining actions for today.'}
+							</div>
+						{:else}
+							<div class="today-focus-flow-title">Today is clear</div>
+						{/if}
+					</div>
+					<div class="soft-text small">One star bucket at a time.</div>
+				</div>
+
+				{#if currentProgressiveBucket}
+					<div class="task-list">
+						{#each currentProgressiveBucket.tasks as task (task.id)}
+							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+								<TaskRow
+									{task}
+									disableOptions={searchOpen}
+									showTodayStarControls
+									showModeBadge
+								/>
+							</div>
+						{/each}
+					</div>
+
+					{#if nextProgressiveBuckets.length}
+						<div class="today-focus-next-action">
+							<button
+								class="toolbar-button active"
+								type="button"
+								onclick={showNextProgressiveBucket}
+							>
+								Show {nextProgressiveBuckets[0].star === 'none'
+									? 'remaining actions'
+									: `${nextProgressiveBuckets[0].star} star actions`} next
+								<i class="fa-solid fa-chevron-right ms-2"></i>
+							</button>
+						</div>
+					{/if}
+				{:else}
+					<div class="empty-state">Nothing left in Today. Switch back to overview if you want the full page again.</div>
+				{/if}
+
+				{#if pausedActions.length}
+					<section class="mt-4" bind:this={pausedSection}>
+						<div class="list-heading">Paused Actions</div>
+						<div class="task-list">
+							{#each pausedActions as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow
+										{task}
+										disableOptions={searchOpen}
+										showTodayStarControls
+										showModeBadge
+									/>
+								</div>
+							{/each}
+						</div>
+					</section>
+				{/if}
+			</div>
 		{:else}
 			<div
 				in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
@@ -393,6 +609,7 @@
 										disableOptions={searchOpen}
 										showTodayStarControls
 										showTodayStarBadge
+										showModeBadge
 									/>
 								</div>
 							{/each}
@@ -411,6 +628,7 @@
 										disableOptions={searchOpen}
 										showTodayStarControls
 										showTodayStarBadge
+										showModeBadge
 									/>
 								</div>
 							{/each}
@@ -431,6 +649,7 @@
 										disableOptions={searchOpen}
 										showTodayStarControls
 										showTodayStarBadge
+										showModeBadge
 									/>
 								</div>
 							{/each}
@@ -478,12 +697,12 @@
 	{/if}
 </div>
 
-{#if focusMode}
+{#if focusView === 'single'}
 	<div class="focus-overlay" role="dialog" aria-modal="true" aria-labelledby="focus-mode-title">
 		<div class="focus-overlay-backdrop"></div>
 		<div class="focus-overlay-content">
 			<div class="focus-overlay-exit">
-				<button class="focus-exit-button" type="button" aria-label="Exit focus mode" onclick={() => (focusMode = false)}>
+				<button class="focus-exit-button" type="button" aria-label="Exit focus mode" onclick={exitFocusMode}>
 					<i class="fa-solid fa-xmark"></i>
 				</button>
 				<span class="focus-exit-label">ESC</span>
@@ -494,7 +713,7 @@
 					{#if activeFocusTask}
 						<div class="focus-mode-badge mode" id="focus-mode-title">{activeFocusTask.mode}</div>
 					{:else}
-						<div class="focus-mode-badge mode" id="focus-mode-title">Focus Mode</div>
+						<div class="focus-mode-badge mode" id="focus-mode-title">Single Action</div>
 					{/if}
 				</div>
 			</div>
@@ -709,6 +928,7 @@
 										{task}
 										showTodayStarControls
 										showTodayStarBadge
+										showModeBadge
 									/>
 								</div>
 							{/each}

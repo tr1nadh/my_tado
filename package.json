@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "desktop": "tauri dev",
-    "desktop:dist": "node scripts/build-tauri-updater.mjs"
+    "desktop:dist": "node scripts/build-tauri-updater.mjs",
+    "clean:artifacts": "node scripts/clean-artifacts.mjs"
   },
   "keywords": [
     "sveltekit",

@@ -112,6 +112,7 @@
 	$: selectedDate = dateOptions.some((option) => option.value === selectedDate)
 		? selectedDate
 		: dateOptions.find((option) => option.value === initialUpcomingDateValue)?.value || dateOptions[0]?.value || '';
+	$: showModeBadge = $activeMode === 'All Modes';
 	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && dateOptions.some((option) => option.value === task.dueDate));
 	$: modalSearchedTasks = scopedTasks.filter((task) => {
 		const matchesSearch =
@@ -374,7 +375,7 @@
 					<div class="task-list">
 						{#each completedTasks as task (task.id)}
 							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-								<TaskRow {task} disableOptions={searchOpen} />
+								<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
 							</div>
 						{/each}
 					</div>
@@ -394,7 +395,7 @@
 							<div class="task-list">
 								{#each group.tasks as task (task.id)}
 									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-										<TaskRow {task} disableOptions={searchOpen} />
+										<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
 									</div>
 								{/each}
 							</div>
@@ -410,7 +411,7 @@
 						<div class="task-list">
 							{#each pausedActions as task (task.id)}
 								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow {task} disableOptions={searchOpen} />
+									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
 								</div>
 							{/each}
 						</div>
@@ -564,7 +565,7 @@
 						<div class="search-results-list task-list">
 							{#each modalSearchedTasks as task (task.id)}
 								<div class="search-result-row">
-									<TaskRow {task} />
+									<TaskRow {task} {showModeBadge} />
 								</div>
 							{/each}
 						</div>
