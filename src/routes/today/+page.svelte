@@ -16,16 +16,22 @@
 		activeMode,
 		addTask,
 		clearDoneForMode,
+		getActiveModeTimeBlock,
+		getLocalDateKey,
+		getModeTimeBlocksForDate,
 		isOverdue,
 		isToday,
 		modeMatches,
+		modes,
 		pauseTask,
 		rescheduleTasksToToday,
 		resumeTask,
+		settings,
 		settingsReady,
 		todayStarOptions,
 		toggleTask,
-		tasks
+		tasks,
+		updateSettings
 	} from '$lib/tasks';
 
 	let search = '';
@@ -53,9 +59,80 @@
 	let focusHoldAnimationFrame;
 	let focusHoldStart = 0;
 	let focusHoldConsumed = false;
-	const todayDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+	let todayRailOpen = false;
+	let lastAutoSwitchedBlockId = null;
+	let modeBlockInterval;
+	let timelineGrid;
+	let timeBlockResizeState = null;
+	let timeBlockDragState = null;
+	let selectedModeToAdd = null;
+	const todayDate = getLocalDateKey(new Date());
+	const timeBlockTimelineStart = 0;
+	const timeBlockTimelineEnd = 24 * 60;
+	const timeBlockFallbackDuration = 60;
+	const timeBlockSnapMinutes = 15;
+	const minTimeBlockMinutes = 15;
 
 	const todayStarOrder = ['red', 'blue', 'yellow', 'none'];
+
+	function formatDayLabel(date) {
+		return new Intl.DateTimeFormat(undefined, {
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric'
+		}).format(date);
+	}
+
+	function timeToMinutes(value) {
+		if (typeof value !== 'string') return 0;
+		const [hours = '0', minutes = '0'] = value.split(':');
+		return Number.parseInt(hours, 10) * 60 + Number.parseInt(minutes, 10);
+	}
+
+	function minutesToTime(value) {
+		const boundedMinutes = Math.max(0, Math.min(value, 23 * 60 + 59));
+		return `${String(Math.floor(boundedMinutes / 60)).padStart(2, '0')}:${String(boundedMinutes % 60).padStart(2, '0')}`;
+	}
+
+	function clamp(value, min, max) {
+		return Math.max(min, Math.min(value, max));
+	}
+
+	function snapMinutes(value) {
+		return Math.round(value / timeBlockSnapMinutes) * timeBlockSnapMinutes;
+	}
+
+	function formatTimeLabel(value) {
+		const [hours = '0', minutes = '0'] = String(value || '').split(':');
+		const date = new Date();
+		date.setHours(Number.parseInt(hours, 10) || 0, Number.parseInt(minutes, 10) || 0, 0, 0);
+		return new Intl.DateTimeFormat('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
+	}
+
+	function normalizeBlockDraft(block) {
+		const startMinutes = timeToMinutes(block.startTime || '09:00');
+		const rawEndMinutes = timeToMinutes(block.endTime || '10:00');
+		const endMinutes =
+			rawEndMinutes > startMinutes
+				? rawEndMinutes
+				: Math.min(startMinutes + timeBlockFallbackDuration, 23 * 60 + 59);
+
+		return {
+			...block,
+			startTime: minutesToTime(startMinutes),
+			endTime: minutesToTime(endMinutes)
+		};
+	}
+
+	function getSuggestedNextBlockStart() {
+		if (!todayModeBlocks.length) return '09:00';
+		const lastBlock = todayModeBlocks[todayModeBlocks.length - 1];
+		return lastBlock.endTime;
+	}
 
 	function sortByTodayStar(list) {
 		return [...list].sort((left, right) => {
@@ -175,7 +252,160 @@
 		}
 	}
 
+	function openTodayRail() {
+		todayRailOpen = true;
+	}
+
+	function closeTodayRail() {
+		if ($settings.todayRailPinned) return;
+		todayRailOpen = false;
+	}
+
+	function persistModeBlocks(nextBlocks) {
+		updateSettings({
+			modeTimeBlocks: nextBlocks
+		});
+	}
+
+	function addModeTimeBlock(modeName = null) {
+		const nextStartTime = getSuggestedNextBlockStart();
+		const startMinutes = timeToMinutes(nextStartTime);
+		const nextBlock = normalizeBlockDraft({
+			id: crypto.randomUUID(),
+			date: todayDate,
+			mode: modeName || allModeOptions[0] || 'Work Sprint',
+			startTime: nextStartTime,
+			endTime: minutesToTime(startMinutes + timeBlockFallbackDuration)
+		});
+
+		persistModeBlocks([...$settings.modeTimeBlocks, nextBlock]);
+	}
+
+	function updateModeTimeBlock(blockId, patch) {
+		persistModeBlocks(
+			$settings.modeTimeBlocks.map((block) =>
+				block.id === blockId ? normalizeBlockDraft({ ...block, ...patch }) : block
+			)
+		);
+	}
+
+	function removeModeTimeBlock(blockId) {
+		persistModeBlocks($settings.modeTimeBlocks.filter((block) => block.id !== blockId));
+	}
+
+	function syncActiveModeToBlock() {
+		if (!$settingsReady || !$settings.modeTimeBlocksEnabled) {
+			lastAutoSwitchedBlockId = null;
+			return;
+		}
+
+		const activeBlock = getActiveModeTimeBlock($settings, new Date());
+		if (!activeBlock) {
+			lastAutoSwitchedBlockId = null;
+			return;
+		}
+
+		if (activeBlock.id !== lastAutoSwitchedBlockId || $activeMode !== activeBlock.mode) {
+			activeMode.set(activeBlock.mode);
+			lastAutoSwitchedBlockId = activeBlock.id;
+		}
+	}
+
+	function stopTimeBlockResize() {
+		if (!browser) return;
+		window.removeEventListener('pointermove', handleTimeBlockResizeMove);
+		window.removeEventListener('pointerup', stopTimeBlockResize);
+		window.removeEventListener('pointercancel', stopTimeBlockResize);
+		timeBlockResizeState = null;
+	}
+
+	function handleTimeBlockResizeMove(event) {
+		if (!timeBlockResizeState) return;
+
+		const { blockId, edge, rect, originalStartMinutes, originalEndMinutes } = timeBlockResizeState;
+		const relativeY = clamp(event.clientY - rect.top, 0, rect.height);
+		const minutesOffset = snapMinutes((relativeY / rect.height) * (timeBlockTimelineEnd - timeBlockTimelineStart));
+		const pointerMinutes = clamp(timeBlockTimelineStart + minutesOffset, timeBlockTimelineStart, timeBlockTimelineEnd);
+
+		if (edge === 'start') {
+			const nextStartMinutes = clamp(pointerMinutes, timeBlockTimelineStart, originalEndMinutes - minTimeBlockMinutes);
+			updateModeTimeBlock(blockId, { startTime: minutesToTime(nextStartMinutes) });
+			return;
+		}
+
+		const nextEndMinutes = clamp(pointerMinutes, originalStartMinutes + minTimeBlockMinutes, timeBlockTimelineEnd);
+		updateModeTimeBlock(blockId, { endTime: minutesToTime(nextEndMinutes) });
+	}
+
+	function startTimeBlockResize(event, block, edge) {
+		if (!timelineGrid) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		openTodayRail();
+
+		timeBlockResizeState = {
+			blockId: block.id,
+			edge,
+			rect: timelineGrid.getBoundingClientRect(),
+			originalStartMinutes: timeToMinutes(block.startTime),
+			originalEndMinutes: timeToMinutes(block.endTime)
+		};
+
+		window.addEventListener('pointermove', handleTimeBlockResizeMove);
+		window.addEventListener('pointerup', stopTimeBlockResize);
+		window.addEventListener('pointercancel', stopTimeBlockResize);
+	}
+
+	function stopTimeBlockDrag() {
+		if (!browser) return;
+		window.removeEventListener('pointermove', handleTimeBlockDragMove);
+		window.removeEventListener('pointerup', stopTimeBlockDrag);
+		window.removeEventListener('pointercancel', stopTimeBlockDrag);
+		timeBlockDragState = null;
+	}
+
+	function handleTimeBlockDragMove(event) {
+		if (!timeBlockDragState) return;
+
+		const { blockId, rect, startY, originalStartMinutes, originalEndMinutes } = timeBlockDragState;
+		const deltaY = event.clientY - startY;
+		
+		const minutesOffset = snapMinutes((deltaY / rect.height) * (timeBlockTimelineEnd - timeBlockTimelineStart));
+		const duration = originalEndMinutes - originalStartMinutes;
+		
+		const nextStartMinutes = clamp(originalStartMinutes + minutesOffset, timeBlockTimelineStart, timeBlockTimelineEnd - duration);
+		const nextEndMinutes = nextStartMinutes + duration;
+
+		updateModeTimeBlock(blockId, { 
+			startTime: minutesToTime(nextStartMinutes),
+			endTime: minutesToTime(nextEndMinutes)
+		});
+	}
+
+	function startTimeBlockDrag(event, block) {
+		if (!timelineGrid) return;
+		if (event.target.classList.contains('today-time-block-handle')) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		openTodayRail();
+
+		timeBlockDragState = {
+			blockId: block.id,
+			rect: timelineGrid.getBoundingClientRect(),
+			startY: event.clientY,
+			originalStartMinutes: timeToMinutes(block.startTime),
+			originalEndMinutes: timeToMinutes(block.endTime)
+		};
+
+		window.addEventListener('pointermove', handleTimeBlockDragMove);
+		window.addEventListener('pointerup', stopTimeBlockDrag);
+		window.addEventListener('pointercancel', stopTimeBlockDrag);
+	}
+
 	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
+	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: modalSearchedTasks = scopedTasks.filter((task) => {
 		const matchesSearch =
 			!search ||
@@ -226,6 +456,70 @@
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = !showDone && pausedActions.length > 0 && (!pausedSection || !pausedVisible);
+	$: todayModeSummaryMap = allTodayScopedTasks.reduce((summary, task) => {
+		const current = summary.get(task.mode) || { mode: task.mode, count: 0, overdueCount: 0 };
+		current.count += 1;
+		if (isOverdue(task.dueDate)) {
+			current.overdueCount += 1;
+		}
+		summary.set(task.mode, current);
+		return summary;
+	}, new Map());
+	$: todayModeSummaries = Array.from(
+		todayModeSummaryMap.values()
+	).sort((left, right) => right.count - left.count || left.mode.localeCompare(right.mode));
+	$: allModeOptions = $modes.filter((mode) => mode !== 'All Modes');
+	$: if (!selectedModeToAdd && allModeOptions.length > 0) {
+		selectedModeToAdd = allModeOptions[0];
+	}
+	$: todayModeBlocks = getModeTimeBlocksForDate($settings, todayDate);
+	$: activeModeTimeBlock = getActiveModeTimeBlock($settings, new Date());
+	$: currentTimelineMinutes = clamp(
+		new Date().getHours() * 60 + new Date().getMinutes(),
+		timeBlockTimelineStart,
+		timeBlockTimelineEnd
+	);
+	$: currentTimelineTop =
+		((currentTimelineMinutes - timeBlockTimelineStart) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100;
+	$: todayTimelineHours = Array.from({ length: timeBlockTimelineEnd / 60 - timeBlockTimelineStart / 60 }, (_, index) => {
+		const hour = timeBlockTimelineStart / 60 + index;
+		return {
+			key: hour,
+			label: new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true }).format(new Date(2024, 0, 1, hour, 0, 0, 0))
+		};
+	});
+	$: timelineBlocks = todayModeBlocks.map((block) => {
+		const startMinutes = Math.max(timeToMinutes(block.startTime), timeBlockTimelineStart);
+		const endMinutes = Math.min(timeToMinutes(block.endTime), timeBlockTimelineEnd);
+		const totalMinutes = timeBlockTimelineEnd - timeBlockTimelineStart;
+		const durationMinutes = Math.max(0, timeToMinutes(block.endTime) - timeToMinutes(block.startTime));
+		const durationHours = (durationMinutes / 60).toFixed(1).replace(/\.0$/, '');
+		const top = ((startMinutes - timeBlockTimelineStart) / totalMinutes) * 100;
+		const height = (Math.max(endMinutes - startMinutes, 30) / totalMinutes) * 100;
+
+		return {
+			...block,
+			top,
+			height,
+			durationDisplay: `${durationHours}h`,
+			active: activeModeTimeBlock?.id === block.id
+		};
+	});
+	$: if (browser && $settingsReady) {
+		syncActiveModeToBlock();
+
+		const hasSleepForToday = todayModeBlocks.some((b) => b.mode === 'Sleep');
+		if (!hasSleepForToday) {
+			const sleepBlock = normalizeBlockDraft({
+				id: `sleep-default-${todayDate}`,
+				date: todayDate,
+				mode: 'Sleep',
+				startTime: '00:00',
+				endTime: '08:00'
+			});
+			persistModeBlocks([...$settings.modeTimeBlocks, sleepBlock]);
+		}
+	}
 	$: actionLines = actionDraft.split('\n');
 	$: actionHighlightHtml = actionLines
 		.map((line, index) => {
@@ -405,6 +699,8 @@
 	}
 
 	onMount(() => {
+		syncActiveModeToBlock();
+
 		function handleKeydown(event) {
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -443,15 +739,22 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
+		modeBlockInterval = window.setInterval(syncActiveModeToBlock, 30000);
 		return () => {
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
+			if (modeBlockInterval) {
+				clearInterval(modeBlockInterval);
+				modeBlockInterval = undefined;
+			}
 		};
 	});
 
 	onDestroy(() => {
 		pausedObserver?.disconnect();
 		clearFocusHold(true);
+		stopTimeBlockResize();
+		stopTimeBlockDrag();
 	});
 </script>
 
@@ -660,41 +963,185 @@
 		{/if}
 	</section>
 
-	{#if !showDone && completedTasks.length}
-		<button
-			class="view-toggle-button view-toggle-right"
-			type="button"
-			aria-label="Show completed actions"
-			data-tooltip="Show completed actions"
-			onclick={openCompletedView}
-		>
-			<i class="fa-solid fa-check-double"></i>
-		</button>
-	{/if}
+	<aside class="right-dock">
+		{#if !$settings.todayRailPinned}
+			<button
+				class={`dock-button ${todayRailOpen ? 'active' : ''}`}
+				type="button"
+				aria-label={todayRailOpen ? 'Close Mode Blocks' : 'Open Mode Blocks'}
+				data-tooltip={todayRailOpen ? 'Hide Mode Blocks' : 'Show Mode Blocks'}
+				onclick={() => (todayRailOpen = !todayRailOpen)}
+			>
+				<i class="fa-regular fa-calendar-days"></i>
+			</button>
+		{/if}
 
-	{#if showDone}
-		<button
-			class="view-toggle-button view-toggle-left"
-			type="button"
-			aria-label="Show pending actions"
-			data-tooltip="Show pending actions"
-			onclick={openPendingView}
-		>
-			<i class="fa-solid fa-list"></i>
-		</button>
-	{/if}
+		{#if showDone}
+			<button
+				class="dock-button"
+				type="button"
+				aria-label="Show pending actions"
+				data-tooltip="Show pending actions"
+				onclick={openPendingView}
+			>
+				<i class="fa-solid fa-list"></i>
+			</button>
+		{:else if completedTasks.length}
+			<button
+				class="dock-button"
+				type="button"
+				aria-label="Show completed actions"
+				data-tooltip="Show completed actions"
+				onclick={openCompletedView}
+			>
+				<i class="fa-solid fa-check-double"></i>
+			</button>
+		{/if}
 
-	{#if showPausedJump}
-		<button
-			class="view-toggle-button paused-jump-button"
-			type="button"
-			aria-label="Jump to paused actions"
-			data-tooltip="Jump to paused actions"
-			onclick={jumpToPaused}
+		{#if showPausedJump}
+			<button
+				class="dock-button"
+				type="button"
+				aria-label="Jump to paused actions"
+				data-tooltip="Jump to paused actions"
+				onclick={jumpToPaused}
+			>
+				<i class="fa-solid fa-pause"></i>
+			</button>
+		{/if}
+	</aside>
+
+	<div class="today-time-rail-container {$settings.todayRailPinned ? 'pinned' : ''}">
+		<aside
+			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
+			aria-label="Today mode time blocks"
 		>
-			<i class="fa-solid fa-pause"></i>
-		</button>
-	{/if}
+
+
+		<div class="today-time-rail-content">
+			<div class="today-time-rail-head align-items-center pb-2 mb-3 border-bottom border-light border-opacity-10">
+				<div>
+					<div class="section-label mb-0 text-white">Mode Blocks</div>
+					<div class="today-time-rail-date mt-1 text-muted" style="font-size: 0.8rem; font-weight: 500;">{formatDayLabel(new Date())}</div>
+				</div>
+				<div class="d-flex align-items-center gap-3">
+					<label class="form-check form-switch d-flex align-items-center gap-2 mb-0" style="margin: 0; cursor: pointer;" title="Auto-switch mode via schedule">
+						<span class="soft-text small" style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase;">Auto</span>
+						<input
+							class="form-check-input m-0 cursor-pointer"
+							type="checkbox"
+							style="width: 2rem; height: 1rem;"
+							checked={$settings.modeTimeBlocksEnabled}
+							onchange={(event) => updateSettings({ modeTimeBlocksEnabled: event.currentTarget.checked })}
+						/>
+					</label>
+					<div class="d-flex align-items-center gap-1 border-start border-light border-opacity-25 ps-2 ms-1">
+						<button
+							class={`icon-button ${$settings.todayRailPinned ? 'text-primary' : 'text-muted'}`}
+							style="width: 1.8rem; height: 1.8rem; font-size: 0.85rem;"
+							type="button"
+							aria-label={$settings.todayRailPinned ? 'Unpin blocks' : 'Pin blocks'}
+							title={$settings.todayRailPinned ? 'Unpin' : 'Pin to side'}
+							onclick={() => updateSettings({ todayRailPinned: !$settings.todayRailPinned })}
+						>
+							<i class={`fa-solid fa-thumbtack ${!$settings.todayRailPinned ? 'fa-rotate-90' : ''}`}></i>
+						</button>
+						{#if !$settings.todayRailPinned}
+							<button
+								class="icon-button text-muted"
+								style="width: 1.8rem; height: 1.8rem; font-size: 0.95rem;"
+								type="button"
+								aria-label="Close mode blocks"
+								title="Close"
+								onclick={() => (todayRailOpen = false)}
+							>
+								<i class="fa-solid fa-xmark"></i>
+							</button>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			{#if activeModeTimeBlock}
+				<div class="today-time-current-block">
+					<div class="section-label">Live Now</div>
+					<div class="today-time-current-title">{activeModeTimeBlock.mode}</div>
+					<div class="soft-text small">
+						{formatTimeLabel(activeModeTimeBlock.startTime)} to {formatTimeLabel(activeModeTimeBlock.endTime)}
+					</div>
+				</div>
+			{/if}
+
+			<div class="today-time-mode-palette">
+				<div class="d-flex align-items-center gap-2 mt-2">
+					<select class="form-select flex-grow-1" bind:value={selectedModeToAdd}>
+						{#each allModeOptions as modeName (modeName)}
+							<option value={modeName}>{modeName} ({todayModeSummaryMap.get(modeName)?.count || 0})</option>
+						{/each}
+					</select>
+					<button class="toolbar-button flex-shrink-0" type="button" onclick={() => addModeTimeBlock(selectedModeToAdd)}>
+						<i class="fa-solid fa-plus me-2"></i>Add
+					</button>
+				</div>
+			</div>
+
+			<div class="today-time-calendar-shell">
+				<div class="today-time-calendar">
+					<div class="today-time-hours">
+						{#each todayTimelineHours as hour}
+							<div class="today-time-hour">
+								<span>{hour.label}</span>
+							</div>
+						{/each}
+					</div>
+					<div class="today-time-calendar-grid" bind:this={timelineGrid}>
+						{#each todayTimelineHours as hour}
+							<div class="today-time-grid-line"></div>
+						{/each}
+
+						<div class="today-time-now-line" style={`top:${currentTimelineTop}%;`}>
+							<span>Now</span>
+						</div>
+
+						{#if timelineBlocks.length}
+							{#each timelineBlocks as block (block.id)}
+								<div
+									class={`today-time-block ${block.active ? 'active' : ''} ${timeBlockDragState?.blockId === block.id ? 'dragging' : ''}`}
+									style={`top:${block.top}%;height:${block.height}%; cursor: ${timeBlockDragState?.blockId === block.id ? 'grabbing' : 'grab'};`}
+									onpointerdown={(event) => startTimeBlockDrag(event, block)}
+								>
+									<button
+										class="today-time-block-handle top"
+										type="button"
+										aria-label={`Resize ${block.mode} block start`}
+										onpointerdown={(event) => startTimeBlockResize(event, block, 'start')}
+									></button>
+									<div class="today-time-block-mode">{block.mode} <span class="ms-1 opacity-50 pe-none" style="font-size: 0.75em;">({block.durationDisplay})</span></div>
+									<div class="today-time-block-range">
+										{formatTimeLabel(block.startTime)} to {formatTimeLabel(block.endTime)}
+									</div>
+									<button
+										class="today-time-block-handle bottom"
+										type="button"
+										aria-label={`Resize ${block.mode} block end`}
+										onpointerdown={(event) => startTimeBlockResize(event, block, 'end')}
+									></button>
+								</div>
+							{/each}
+						{:else}
+							<div class="today-time-empty">
+								<i class="fa-regular fa-clock"></i>
+								<span>Block time for a mode to make Today switch automatically.</span>
+							</div>
+						{/if}
+					</div>
+				</div>
+
+	</div>
+		</div>
+		</aside>
+	</div>
+
 </div>
 
 {#if focusView === 'single'}

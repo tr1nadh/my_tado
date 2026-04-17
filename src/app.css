@@ -2039,7 +2039,455 @@ body.task-drag-active * {
 
 .actions-panel-shell {
 	position: relative;
+	display: flex;
+	align-items: start;
+	gap: 1rem;
 	overflow: visible;
+}
+
+.actions-panel-shell > .glass-panel.fade-up {
+	flex-grow: 1;
+	min-width: 0;
+}
+
+.today-time-rail-container {
+	position: sticky;
+	top: 1rem;
+	width: 0;
+	flex-shrink: 0;
+	transition: width 120ms ease;
+	z-index: 120;
+}
+
+.today-time-rail-container.pinned {
+	width: 25rem;
+}
+
+.today-time-rail {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 25rem;
+	height: calc(100vh - 2rem);
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 1rem 1rem 1rem 2.25rem;
+	background-color: rgb(8, 19, 34) !important;
+	color: rgba(255, 255, 255, 0.95);
+	border-left: 1px solid rgba(129, 181, 255, 0.12);
+	border-radius: 1rem;
+	z-index: 105;
+	transition:
+		width 120ms ease,
+		padding 120ms ease,
+		border-color 120ms ease,
+		background-color 120ms ease,
+		box-shadow 120ms ease,
+		transform 120ms ease,
+		opacity 120ms ease;
+}
+
+.today-time-rail .text-muted,
+.today-time-rail .soft-text {
+	color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.today-time-rail .icon-button {
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.today-time-rail .icon-button:hover {
+	color: #fff;
+}
+
+.today-time-rail::-webkit-scrollbar {
+	width: 6px;
+}
+.today-time-rail::-webkit-scrollbar-track {
+	background: rgba(0, 0, 0, 0.15);
+	border-radius: 4px;
+}
+.today-time-rail::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+}
+.today-time-rail::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.35);
+}
+
+.today-time-rail.floating {
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: calc(100vh - 2rem);
+	z-index: 1000;
+	box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4);
+}
+
+.today-time-rail.pinned {
+	position: absolute;
+	box-shadow: none;
+	transform: translateX(0);
+	opacity: 1;
+	z-index: 105;
+}
+
+.today-time-rail.collapsed {
+	width: 25rem;
+	padding-left: 0.35rem;
+	padding-right: 0.35rem;
+	box-shadow: none;
+	border-color: rgba(129, 181, 255, 0.05);
+	background: rgb(8, 19, 34);
+	transform: translateX(27rem);
+	opacity: 0;
+	pointer-events: none;
+}
+
+.today-time-rail.collapsed .today-time-rail-content {
+	opacity: 0;
+}
+
+.today-time-rail.open {
+	border-color: rgba(89, 213, 255, 0.18);
+	background: rgb(8, 19, 34);
+	transform: translateX(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.today-time-rail-toggle {
+	position: absolute;
+	top: 0.85rem;
+	left: 0.35rem;
+	width: 2rem;
+	height: 2rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	border: 1px solid rgba(129, 181, 255, 0.12);
+	background: rgba(255, 255, 255, 0.03);
+	color: var(--text);
+}
+
+.today-time-rail-content {
+	display: grid;
+	gap: 1rem;
+	opacity: 1;
+	transform: translateX(0);
+	transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.today-time-rail-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.8rem;
+}
+
+.today-time-rail-date {
+	margin-top: 0.35rem;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
+.today-time-rail-switch {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.2rem 0;
+}
+
+.today-time-current-block {
+	padding: 0.9rem 1rem;
+	border-radius: 1rem;
+	border: 1px solid rgba(89, 213, 255, 0.14);
+	background: rgba(45, 127, 249, 0.08);
+}
+
+.today-time-current-title {
+	margin-top: 0.35rem;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
+.today-time-mode-palette {
+	display: grid;
+	gap: 0.7rem;
+}
+
+.today-time-mode-chip-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.55rem;
+}
+
+.today-time-mode-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.55rem 0.75rem;
+	border-radius: 999px;
+	border: 1px solid rgba(129, 181, 255, 0.12);
+	background: rgba(255, 255, 255, 0.03);
+	color: var(--text);
+	font-size: 0.82rem;
+	font-weight: 700;
+}
+
+.today-time-mode-chip.active,
+.today-time-mode-chip:hover {
+	border-color: rgba(89, 213, 255, 0.24);
+	background: rgba(45, 127, 249, 0.12);
+}
+
+.today-time-mode-chip-meta {
+	padding: 0.15rem 0.38rem;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--muted);
+	font-size: 0.72rem;
+}
+
+.today-time-calendar-shell {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.today-time-calendar-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.today-time-calendar {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.7rem;
+	align-items: start;
+}
+
+.today-time-hours {
+	display: grid;
+	grid-auto-rows: minmax(2.35rem, 1fr);
+	gap: 0;
+	padding-top: 0.1rem;
+}
+
+.today-time-hour {
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-end;
+	padding-right: 0.35rem;
+	color: var(--muted);
+	font-size: 0.76rem;
+}
+
+.today-time-calendar-grid {
+	position: relative;
+	display: grid;
+	grid-auto-rows: minmax(2.35rem, 1fr);
+	padding: 0.1rem 0.2rem;
+	border-radius: 1rem;
+	border: 1px solid rgba(129, 181, 255, 0.1);
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.012)),
+		radial-gradient(circle at top left, rgba(89, 213, 255, 0.06), transparent 40%);
+}
+
+.today-time-now-line {
+	position: absolute;
+	left: 0.5rem;
+	right: 0.5rem;
+	height: 0;
+	border-top: 1px dashed rgba(255, 107, 129, 0.75);
+	z-index: 2;
+	pointer-events: none;
+}
+
+.today-time-now-line span {
+	position: absolute;
+	top: -0.7rem;
+	right: 0;
+	padding: 0.08rem 0.42rem;
+	border-radius: 999px;
+	background: rgba(255, 107, 129, 0.18);
+	color: #ffd4dc;
+	font-size: 0.68rem;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.today-time-grid-line {
+	border-top: 1px solid rgba(129, 181, 255, 0.08);
+}
+
+.today-time-grid-line:first-child {
+	border-top: 0;
+}
+
+.today-time-block {
+	position: absolute;
+	left: 0.35rem;
+	right: 0.35rem;
+	padding: 0.35rem 0.5rem;
+	border-radius: 0.5rem;
+	border: 1px solid rgba(129, 181, 255, 0.12);
+	border-left: 3px solid rgba(89, 213, 255, 0.4);
+	background: rgba(12, 32, 56, 0.85);
+	backdrop-filter: blur(8px);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+	overflow: hidden;
+}
+
+.today-time-block.active {
+	border-color: rgba(89, 213, 255, 0.26);
+	border-left-color: rgba(89, 213, 255, 0.9);
+	background: rgba(26, 66, 116, 0.9);
+	z-index: 3;
+}
+
+.today-time-block:has(.today-time-block-handle:active),
+.today-time-block.dragging {
+	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.today-time-block-mode {
+	font-size: 0.82rem;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.today-time-block-range {
+	margin-top: 0.1rem;
+	color: var(--muted);
+	font-size: 0.72rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.today-time-block-handle {
+	position: absolute;
+	left: calc(50% - 1.5rem);
+	width: 3rem;
+	height: 0.3rem;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(217, 235, 255, 0.2);
+	cursor: ns-resize;
+	transition: background 150ms ease;
+}
+
+.today-time-block-handle:hover,
+.today-time-block-handle:active {
+	background: rgba(217, 235, 255, 0.5);
+}
+
+.today-time-block-handle.top {
+	top: 0.15rem;
+}
+
+.today-time-block-handle.bottom {
+	bottom: 0.15rem;
+}
+
+.today-time-empty {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	gap: 0.45rem;
+	padding: 1.25rem;
+	text-align: center;
+	color: var(--muted);
+}
+
+.today-time-agenda-list {
+	display: grid;
+	gap: 0.55rem;
+}
+
+.today-time-agenda-card {
+	padding: 0.8rem 0.9rem;
+	border-radius: 0.95rem;
+	border: 1px solid rgba(129, 181, 255, 0.1);
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.today-time-agenda-card.active {
+	border-color: rgba(89, 213, 255, 0.24);
+	background: rgba(45, 127, 249, 0.08);
+}
+
+.today-time-agenda-range {
+	color: var(--muted);
+	font-size: 0.74rem;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+
+.today-time-agenda-mode {
+	margin-top: 0.25rem;
+	font-size: 0.92rem;
+	font-weight: 700;
+}
+
+.today-time-editor {
+	display: grid;
+	gap: 0.7rem;
+}
+
+.today-time-editor-list {
+	display: grid;
+	gap: 0.65rem;
+}
+
+.today-time-editor-row {
+	padding: 0.75rem 0.85rem;
+	border-radius: 0.95rem;
+	border: 1px solid rgba(129, 181, 255, 0.1);
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.today-time-editor-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: 0.65rem;
+}
+
+.today-time-editor-row.active {
+	border-color: rgba(89, 213, 255, 0.2);
+	background: rgba(45, 127, 249, 0.08);
+}
+
+.today-time-editor-range {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+
+.today-time-editor-range .form-control {
+	width: 7rem;
+}
+
+.today-time-delete-button {
+	width: 2.2rem;
+	height: 2.2rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0.8rem;
+	border: 1px solid rgba(129, 181, 255, 0.12);
+	background: rgba(255, 255, 255, 0.03);
+	color: var(--text);
 }
 
 .view-toggle-button {
@@ -2100,6 +2548,78 @@ body.task-drag-active * {
 
 .view-toggle-right::after {
 	right: calc(100% + 0.8rem);
+}
+
+.calendar-toggle-right {
+	top: 1.5rem;
+	right: 1.5rem;
+	transform: translateX(50%);
+}
+
+.calendar-toggle-right::after {
+	right: calc(100% + 0.8rem);
+}
+
+.right-dock {
+	position: sticky;
+	top: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	align-items: center;
+	padding: 0.8rem 0.5rem;
+	width: 3.5rem;
+	border-radius: 1rem;
+	background: rgba(8, 19, 34, 0.94);
+	border: 1px solid rgba(129, 181, 255, 0.12);
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+	z-index: 105;
+	flex-shrink: 0;
+}
+
+.right-dock .dock-button {
+	width: 2.5rem;
+	height: 2.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0.75rem;
+	border: 1px solid rgba(129, 181, 255, 0.1);
+	background: transparent;
+	color: var(--muted);
+	transition: all 180ms ease;
+	position: relative;
+}
+
+.right-dock .dock-button.active,
+.right-dock .dock-button:hover {
+	background: rgba(89, 213, 255, 0.15);
+	color: #fff;
+	border-color: rgba(89, 213, 255, 0.3);
+}
+
+.right-dock .dock-button::after {
+	content: attr(data-tooltip);
+	position: absolute;
+	top: 50%;
+	right: calc(100% + 0.8rem);
+	padding: 0.42rem 0.65rem;
+	border: 1px solid rgba(129, 181, 255, 0.16);
+	border-radius: 0.7rem;
+	background: rgba(4, 13, 24, 0.98);
+	color: var(--text);
+	font-size: 0.78rem;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-50%);
+	transition: opacity 150ms ease;
+}
+
+.right-dock .dock-button:hover::after,
+.right-dock .dock-button:focus-visible::after {
+	opacity: 1;
 }
 
 .view-toggle-left {
@@ -2249,6 +2769,24 @@ body.task-drag-active * {
 		transform: none;
 	}
 
+	.right-dock {
+		position: fixed;
+		bottom: 6.5rem;
+		right: 1.15rem;
+		top: auto;
+		flex-direction: row;
+		width: auto;
+		padding: 0.5rem 0.8rem;
+	}
+
+	.right-dock .dock-button::after {
+		top: auto;
+		bottom: calc(100% + 0.7rem);
+		left: 50%;
+		right: auto;
+		transform: translateX(-50%);
+	}
+
 	.focus-overlay-stage {
 		grid-template-columns: 1fr;
 	}
@@ -2282,6 +2820,48 @@ body.task-drag-active * {
 	.home-hero-copy h1 {
 		max-width: 13ch;
 		font-size: clamp(2rem, 7vw, 3.3rem);
+	}
+
+	.actions-panel-shell {
+		flex-direction: column;
+	}
+
+	.today-time-rail-container,
+	.today-time-rail-container.pinned {
+		position: static;
+		width: 100%;
+		height: auto;
+	}
+
+	.today-time-rail,
+	.today-time-rail.collapsed {
+		position: static;
+		width: 100%;
+		min-height: 0;
+		padding: 1rem;
+		box-shadow: none;
+	}
+
+	.today-time-rail-toggle {
+		display: none;
+	}
+
+	.today-time-rail.collapsed .today-time-rail-content {
+		opacity: 1;
+		transform: none;
+		pointer-events: auto;
+	}
+
+	.today-time-calendar {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.today-time-hours {
+		display: none;
+	}
+
+	.today-time-calendar-grid {
+		height: clamp(18rem, 42vh, 26rem);
 	}
 
 }
@@ -2406,6 +2986,33 @@ body.task-drag-active * {
 	.focus-overlay-content {
 		width: 100%;
 		padding: 0.2rem 0;
+	}
+
+	.today-time-calendar-head {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.today-time-calendar-grid {
+		height: 16rem;
+	}
+
+	.today-time-block {
+		left: 0.45rem;
+		right: 0.45rem;
+		padding-inline: 0.65rem;
+	}
+
+	.today-time-editor-row {
+		grid-template-columns: 1fr;
+	}
+
+	.today-time-editor-range {
+		justify-content: space-between;
+	}
+
+	.today-time-editor-range .form-control {
+		width: 100%;
 	}
 
 	.focus-overlay-body {

@@ -4,10 +4,12 @@ import { derived, get, writable } from 'svelte/store';
 const storageKey = 'indian-chaos-todo-v2';
 const modesStorageKey = 'indian-chaos-modes-v1';
 const settingsStorageKey = 'indian-chaos-settings-v1';
-const defaultModes = ['All Modes', 'Work Sprint', 'Home Reset', 'Errands', 'Family Loop', 'Health Check'];
+const defaultModes = ['All Modes', 'Sleep', 'Work Sprint', 'Home Reset', 'Errands', 'Family Loop', 'Health Check'];
 const fallbackTaskMode = 'Work Sprint';
 const defaultTodayStar = 'none';
 const defaultTodayStarLimit = 5;
+const defaultModeBlockStartTime = '09:00';
+const defaultModeBlockEndTime = '10:00';
 const defaultSettings = {
 	useUnifiedTodayStarLimit: true,
 	todayStarLimit: defaultTodayStarLimit,
@@ -15,7 +17,9 @@ const defaultSettings = {
 		red: defaultTodayStarLimit,
 		blue: defaultTodayStarLimit,
 		yellow: defaultTodayStarLimit
-	}
+	},
+	modeTimeBlocksEnabled: true,
+	modeTimeBlocks: []
 };
 
 export const priorities = ['High', 'Medium', 'Low'];
@@ -30,6 +34,27 @@ export const todayStarOptions = [
 function normalizeStarLimit(value, fallback = defaultTodayStarLimit) {
 	const parsed = Number.parseInt(value, 10);
 	return Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
+}
+
+function normalizeTimeString(value, fallback) {
+	if (typeof value !== 'string') return fallback;
+	const match = value.match(/^(\d{2}):(\d{2})$/);
+	if (!match) return fallback;
+
+	const hours = Number.parseInt(match[1], 10);
+	const minutes = Number.parseInt(match[2], 10);
+
+	if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return fallback;
+
+	return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function timeToMinutes(value, fallback = 0) {
+	const normalized = normalizeTimeString(value, null);
+	if (!normalized) return fallback;
+
+	const [hours, minutes] = normalized.split(':').map((part) => Number.parseInt(part, 10));
+	return hours * 60 + minutes;
 }
 
 function normalizeTodayStar(value, legacyMatrixType = '') {
@@ -53,6 +78,29 @@ function nextTodayStar(value) {
 	return 'none';
 }
 
+function normalizeModeTimeBlock(block, fallbackDate = formatDate(new Date())) {
+	const startTime = normalizeTimeString(block?.startTime, defaultModeBlockStartTime);
+	const startMinutes = timeToMinutes(startTime, 9 * 60);
+	const rawEndTime = normalizeTimeString(block?.endTime, defaultModeBlockEndTime);
+	const rawEndMinutes = timeToMinutes(rawEndTime, startMinutes + 60);
+	const endMinutes = rawEndMinutes > startMinutes ? rawEndMinutes : Math.min(startMinutes + 60, 23 * 60 + 59);
+	const normalizedMode = String(block?.mode || '').trim();
+
+	return {
+		id: block?.id || crypto.randomUUID(),
+		date: /^\d{4}-\d{2}-\d{2}$/.test(String(block?.date || '')) ? String(block.date) : fallbackDate,
+		mode: normalizedMode && normalizedMode !== 'All Modes' ? normalizedMode : fallbackTaskMode,
+		startTime,
+		endTime: `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+	};
+}
+
+function normalizeModeTimeBlocks(list) {
+	return (Array.isArray(list) ? list : [])
+		.map((block) => normalizeModeTimeBlock(block))
+		.sort((left, right) => timeToMinutes(left.startTime) - timeToMinutes(right.startTime));
+}
+
 export function getTodayStarLimits(value) {
 	const normalized = normalizeSettings(value);
 	if (normalized.useUnifiedTodayStarLimit) {
@@ -66,6 +114,31 @@ export function getTodayStarLimits(value) {
 	return normalized.todayStarLimits;
 }
 
+export function getModeTimeBlocksForDate(settingsValue, date = new Date()) {
+	const normalized = normalizeSettings(settingsValue);
+	const dateKey = typeof date === 'string' ? date : formatDate(date);
+
+	return normalized.modeTimeBlocks.filter((block) => block.date === dateKey);
+}
+
+export function getActiveModeTimeBlock(settingsValue, date = new Date()) {
+	const normalized = normalizeSettings(settingsValue);
+	if (!normalized.modeTimeBlocksEnabled) return null;
+
+	const dateKey = formatDate(date);
+	const currentMinutes = date.getHours() * 60 + date.getMinutes();
+
+	return (
+		normalized.modeTimeBlocks.find((block) => {
+			if (block.date !== dateKey) return false;
+
+			const startMinutes = timeToMinutes(block.startTime);
+			const endMinutes = timeToMinutes(block.endTime);
+			return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+		}) || null
+	);
+}
+
 function normalizeSettings(value) {
 	return {
 		useUnifiedTodayStarLimit:
@@ -77,7 +150,12 @@ function normalizeSettings(value) {
 			red: normalizeStarLimit(value?.todayStarLimits?.red, defaultSettings.todayStarLimits.red),
 			blue: normalizeStarLimit(value?.todayStarLimits?.blue, defaultSettings.todayStarLimits.blue),
 			yellow: normalizeStarLimit(value?.todayStarLimits?.yellow, defaultSettings.todayStarLimits.yellow)
-		}
+		},
+		modeTimeBlocksEnabled:
+			value?.modeTimeBlocksEnabled === undefined
+				? defaultSettings.modeTimeBlocksEnabled
+				: Boolean(value.modeTimeBlocksEnabled),
+		modeTimeBlocks: normalizeModeTimeBlocks(value?.modeTimeBlocks)
 	};
 }
 
@@ -106,6 +184,10 @@ let hoverCloseTimer;
 
 function formatDate(date) {
 	return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+export function getLocalDateKey(date = new Date()) {
+	return formatDate(date);
 }
 
 function daysFromToday(offset) {
