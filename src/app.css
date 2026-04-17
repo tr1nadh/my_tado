@@ -2262,6 +2262,40 @@ body.task-drag-active * {
 	gap: 0.75rem;
 }
 
+.today-time-infinite-scroller {
+	height: calc(100vh - 14rem);
+	overflow-y: scroll;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	scroll-behavior: auto; /* Required for silent teleportation */
+}
+
+.today-time-infinite-scroller::-webkit-scrollbar {
+	display: none;
+}
+
+.today-time-infinite-content {
+	display: flex;
+	flex-direction: column;
+}
+
+.today-time-infinite-scroller {
+	height: calc(100vh - 14rem);
+	overflow-y: scroll;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	scroll-behavior: auto; /* Required for silent teleportation */
+}
+
+.today-time-infinite-scroller::-webkit-scrollbar {
+	display: none;
+}
+
+.today-time-infinite-content {
+	display: flex;
+	flex-direction: column;
+}
+
 .today-time-calendar {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
@@ -2290,7 +2324,6 @@ body.task-drag-active * {
 	display: grid;
 	grid-auto-rows: minmax(2.35rem, 1fr);
 	padding: 0.1rem 0.2rem;
-	border-radius: 1rem;
 	border: 1px solid rgba(129, 181, 255, 0.1);
 	background:
 		linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.012)),

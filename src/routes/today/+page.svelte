@@ -31,7 +31,8 @@
 		todayStarOptions,
 		toggleTask,
 		tasks,
-		updateSettings
+		updateSettings,
+		USER_DAY_START_HOUR
 	} from '$lib/tasks';
 
 	let search = '';
@@ -67,8 +68,8 @@
 	let timeBlockDragState = null;
 	let selectedModeToAdd = null;
 	const todayDate = getLocalDateKey(new Date());
-	const timeBlockTimelineStart = 0;
-	const timeBlockTimelineEnd = 24 * 60;
+	const timeBlockTimelineStart = USER_DAY_START_HOUR * 60;
+	const timeBlockTimelineEnd = (USER_DAY_START_HOUR + 24) * 60;
 	const timeBlockFallbackDuration = 60;
 	const timeBlockSnapMinutes = 15;
 	const minTimeBlockMinutes = 15;
@@ -86,11 +87,19 @@
 	function timeToMinutes(value) {
 		if (typeof value !== 'string') return 0;
 		const [hours = '0', minutes = '0'] = value.split(':');
-		return Number.parseInt(hours, 10) * 60 + Number.parseInt(minutes, 10);
+		let mins = Number.parseInt(hours, 10) * 60 + Number.parseInt(minutes, 10);
+		if (mins < USER_DAY_START_HOUR * 60) {
+			mins += 1440;
+		}
+		return mins;
 	}
 
 	function minutesToTime(value) {
-		const boundedMinutes = Math.max(0, Math.min(value, 23 * 60 + 59));
+		let mins = value;
+		while (mins >= 1440) {
+			mins -= 1440;
+		}
+		const boundedMinutes = Math.max(0, Math.min(mins, 23 * 60 + 59));
 		return `${String(Math.floor(boundedMinutes / 60)).padStart(2, '0')}:${String(boundedMinutes % 60).padStart(2, '0')}`;
 	}
 
@@ -115,11 +124,7 @@
 
 	function normalizeBlockDraft(block) {
 		const startMinutes = timeToMinutes(block.startTime || '09:00');
-		const rawEndMinutes = timeToMinutes(block.endTime || '10:00');
-		const endMinutes =
-			rawEndMinutes > startMinutes
-				? rawEndMinutes
-				: Math.min(startMinutes + timeBlockFallbackDuration, 23 * 60 + 59);
+		const endMinutes = timeToMinutes(block.endTime || '10:00');
 
 		return {
 			...block,
@@ -474,28 +479,35 @@
 	}
 	$: todayModeBlocks = getModeTimeBlocksForDate($settings, todayDate);
 	$: activeModeTimeBlock = getActiveModeTimeBlock($settings, new Date());
-	$: currentTimelineMinutes = clamp(
-		new Date().getHours() * 60 + new Date().getMinutes(),
-		timeBlockTimelineStart,
-		timeBlockTimelineEnd
-	);
+	$: currentTimelineMinutes = (() => {
+		let mins = new Date().getHours() * 60 + new Date().getMinutes();
+		if (new Date().getHours() < USER_DAY_START_HOUR) {
+			mins += 1440;
+		}
+		return clamp(mins, timeBlockTimelineStart, timeBlockTimelineEnd);
+	})();
 	$: currentTimelineTop =
 		((currentTimelineMinutes - timeBlockTimelineStart) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100;
-	$: todayTimelineHours = Array.from({ length: timeBlockTimelineEnd / 60 - timeBlockTimelineStart / 60 }, (_, index) => {
-		const hour = timeBlockTimelineStart / 60 + index;
+	$: todayTimelineHours = Array.from({ length: 24 }, (_, index) => {
+		const hourInTimeline = USER_DAY_START_HOUR + index;
+		const displayHour = hourInTimeline >= 24 ? hourInTimeline - 24 : hourInTimeline;
 		return {
-			key: hour,
-			label: new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true }).format(new Date(2024, 0, 1, hour, 0, 0, 0))
+			key: hourInTimeline,
+			label: new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true }).format(new Date(2024, 0, 1, displayHour, 0, 0, 0))
 		};
 	});
 	$: timelineBlocks = todayModeBlocks.map((block) => {
-		const startMinutes = Math.max(timeToMinutes(block.startTime), timeBlockTimelineStart);
-		const endMinutes = Math.min(timeToMinutes(block.endTime), timeBlockTimelineEnd);
+		const startMinutes = timeToMinutes(block.startTime);
+		let endMinutes = timeToMinutes(block.endTime);
+		if (endMinutes <= startMinutes) {
+			endMinutes += 1440;
+		}
+
 		const totalMinutes = timeBlockTimelineEnd - timeBlockTimelineStart;
-		const durationMinutes = Math.max(0, timeToMinutes(block.endTime) - timeToMinutes(block.startTime));
+		const durationMinutes = endMinutes - startMinutes;
 		const durationHours = (durationMinutes / 60).toFixed(1).replace(/\.0$/, '');
 		const top = ((startMinutes - timeBlockTimelineStart) / totalMinutes) * 100;
-		const height = (Math.max(endMinutes - startMinutes, 30) / totalMinutes) * 100;
+		const height = (Math.max(durationMinutes, 15) / totalMinutes) * 100;
 
 		return {
 			...block,
@@ -514,8 +526,8 @@
 				id: `sleep-default-${todayDate}`,
 				date: todayDate,
 				mode: 'Sleep',
-				startTime: '00:00',
-				endTime: '08:00'
+				startTime: '22:00',
+				endTime: '06:00'
 			});
 			persistModeBlocks([...$settings.modeTimeBlocks, sleepBlock]);
 		}

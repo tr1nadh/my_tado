@@ -22,6 +22,8 @@ const defaultSettings = {
 	modeTimeBlocks: []
 };
 
+export const USER_DAY_START_HOUR = 6;
+
 export const priorities = ['High', 'Medium', 'Low'];
 export const energyModes = ['Quick', 'Admin', 'Focus'];
 export const todayStarOptions = [
@@ -83,7 +85,8 @@ function normalizeModeTimeBlock(block, fallbackDate = formatDate(new Date())) {
 	const startMinutes = timeToMinutes(startTime, 9 * 60);
 	const rawEndTime = normalizeTimeString(block?.endTime, defaultModeBlockEndTime);
 	const rawEndMinutes = timeToMinutes(rawEndTime, startMinutes + 60);
-	const endMinutes = rawEndMinutes > startMinutes ? rawEndMinutes : Math.min(startMinutes + 60, 23 * 60 + 59);
+	// Allow endMinutes to be less than startMinutes (representing next day)
+	const endMinutes = rawEndMinutes;
 	const normalizedMode = String(block?.mode || '').trim();
 
 	return {
@@ -125,15 +128,26 @@ export function getActiveModeTimeBlock(settingsValue, date = new Date()) {
 	const normalized = normalizeSettings(settingsValue);
 	if (!normalized.modeTimeBlocksEnabled) return null;
 
-	const dateKey = formatDate(date);
-	const currentMinutes = date.getHours() * 60 + date.getMinutes();
+	const dateKey = getLocalDateKey(date);
+	let currentMinutes = date.getHours() * 60 + date.getMinutes();
+	if (date.getHours() < USER_DAY_START_HOUR) {
+		currentMinutes += 1440;
+	}
 
 	return (
 		normalized.modeTimeBlocks.find((block) => {
 			if (block.date !== dateKey) return false;
 
-			const startMinutes = timeToMinutes(block.startTime);
-			const endMinutes = timeToMinutes(block.endTime);
+			let startMinutes = timeToMinutes(block.startTime);
+			let endMinutes = timeToMinutes(block.endTime);
+
+			if (startMinutes < USER_DAY_START_HOUR * 60) {
+				startMinutes += 1440;
+			}
+			if (endMinutes <= startMinutes) {
+				endMinutes += 1440;
+			}
+
 			return currentMinutes >= startMinutes && currentMinutes < endMinutes;
 		}) || null
 	);
@@ -187,11 +201,19 @@ function formatDate(date) {
 }
 
 export function getLocalDateKey(date = new Date()) {
-	return formatDate(date);
+	const shiftedDate = new Date(date);
+	if (shiftedDate.getHours() < USER_DAY_START_HOUR) {
+		shiftedDate.setDate(shiftedDate.getDate() - 1);
+	}
+	return formatDate(shiftedDate);
 }
 
 function daysFromToday(offset) {
 	const date = new Date();
+	// Apply rollover logic to "Today" first
+	if (date.getHours() < USER_DAY_START_HOUR) {
+		date.setDate(date.getDate() - 1);
+	}
 	date.setHours(0, 0, 0, 0);
 	date.setDate(date.getDate() + offset);
 	return formatDate(date);
