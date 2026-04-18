@@ -11,10 +11,9 @@
 	} from '$lib/desktopUpdater';
 	import {
 		activeMode,
-		createMode,
-		deleteMode,
+		getModeIcon,
 		initTasks,
-		moveModeToIndex,
+		modeIcons,
 		modes,
 		renameMode
 	} from '$lib/tasks';
@@ -40,15 +39,6 @@
 
 	const settingsNavItem = { href: '/settings', label: 'Settings', description: 'Personalize Karya', icon: 'fa-sliders' };
 	const searchableRoutes = new Set(navItems.map((item) => item.href));
-
-	function getModeIcon(mode) {
-		if (mode === 'Work Sprint') return 'fa-briefcase';
-		if (mode === 'Home Reset') return 'fa-house';
-		if (mode === 'Errands') return 'fa-location-dot';
-		if (mode === 'Family Loop') return 'fa-user-group';
-		if (mode === 'Health Check') return 'fa-heart-pulse';
-		return 'fa-layer-group';
-	}
 
 	onMount(() => {
 		initTasks();
@@ -307,7 +297,9 @@
 													modeMenuOpenFor = null;
 												}}
 											>
-												<i class={`fa-solid ${getModeIcon(mode)}`}></i>
+												<div class="nav-item-icon">
+													<i class="fa-solid {getModeIcon(mode, $modeIcons)}"></i>
+												</div>
 												<span class="mode-pill-label">{mode}</span>
 											</button>
 											{#if mode !== 'All Modes' && $activeMode === mode}

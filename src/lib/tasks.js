@@ -3,6 +3,7 @@ import { derived, get, writable } from 'svelte/store';
 
 const storageKey = 'indian-chaos-todo-v2';
 const modesStorageKey = 'indian-chaos-modes-v1';
+const iconsStorageKey = 'indian-chaos-modes-icons-v1';
 const settingsStorageKey = 'indian-chaos-settings-v1';
 const defaultModes = ['All Modes', 'Sleep', 'Work Sprint', 'Home Reset', 'Errands', 'Family Loop', 'Health Check'];
 const fallbackTaskMode = 'Work Sprint';
@@ -208,6 +209,33 @@ export const hoveredTaskId = writable(null);
 export const draggedTask = writable({ id: null, targetId: null, placement: 'before' });
 export const settings = writable(loadInitialSettings());
 export const settingsReady = writable(false);
+export const modeIcons = writable({});
+
+export function getModeIcon(modeName, icons = get(modeIcons)) {
+	if (icons && icons[modeName]) return icons[modeName];
+
+	const name = modeName.toLowerCase();
+	if (name === 'all modes') return 'fa-layer-group';
+	if (name.includes('sleep') || name.includes('rest') || name.includes('night')) return 'fa-moon';
+	if (name.includes('work') || name.includes('sprint') || name.includes('office') || name.includes('job')) return 'fa-briefcase';
+	if (name.includes('home') || name.includes('house') || name.includes('chore') || name.includes('reset')) return 'fa-house';
+	if (name.includes('errand') || name.includes('shop') || name.includes('buy') || name.includes('location') || name.includes('outside')) return 'fa-location-dot';
+	if (name.includes('family') || name.includes('social') || name.includes('friend') || name.includes('group') || name.includes('loop')) return 'fa-user-group';
+	if (name.includes('health') || name.includes('check') || name.includes('doc') || name.includes('med') || name.includes('gym') || name.includes('exercise')) return 'fa-heart-pulse';
+	if (name.includes('code') || name.includes('dev') || name.includes('tech')) return 'fa-code';
+	if (name.includes('study') || name.includes('learn') || name.includes('read') || name.includes('book')) return 'fa-book';
+	if (name.includes('food') || name.includes('eat') || name.includes('cook')) return 'fa-utensils';
+	if (name.includes('finance') || name.includes('money') || name.includes('bank') || name.includes('bill')) return 'fa-credit-card';
+	
+	return 'fa-layer-group';
+}
+
+export function setModeIcon(modeName, icon) {
+	modeIcons.update(icons => ({
+		...icons,
+		[modeName]: icon
+	}));
+}
 
 let hydrated = false;
 let subscribed = false;
@@ -320,6 +348,7 @@ export function initTasks() {
 	const saved = localStorage.getItem(storageKey);
 	const savedModes = localStorage.getItem(modesStorageKey);
 	const savedSettings = localStorage.getItem(settingsStorageKey);
+	const savedIcons = localStorage.getItem(iconsStorageKey);
 
 	if (savedModes) {
 		try {
@@ -339,6 +368,16 @@ export function initTasks() {
 		}
 	} else {
 		settings.set(defaultSettings);
+	}
+
+	if (savedIcons) {
+		try {
+			modeIcons.set(JSON.parse(savedIcons));
+		} catch {
+			modeIcons.set({});
+		}
+	} else {
+		modeIcons.set({});
 	}
 
 	if (saved) {
@@ -364,6 +403,9 @@ export function initTasks() {
 		});
 		settings.subscribe((value) => {
 			if (hydrated) localStorage.setItem(settingsStorageKey, JSON.stringify(value));
+		});
+		modeIcons.subscribe((value) => {
+			if (hydrated) localStorage.setItem(iconsStorageKey, JSON.stringify(value));
 		});
 	}
 }

@@ -11,7 +11,7 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import { activeMode, addTask, clearDoneForMode, modeMatches, modes, tasks, updateSettings } from '$lib/tasks';
+	import { activeMode, addTask, clearDoneForMode, getModeIcon, modeColorMap, modeIcons, modeMatches, modes, tasks, updateSettings } from '$lib/tasks';
 
 	let search = '';
 	let showDone = false;
@@ -306,6 +306,7 @@
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
 		<div class="today-subtle-selector-shell" style="margin-bottom: 0;">
 			<div class="today-subtle-mode-display">
+				<i class="fa-solid {getModeIcon($activeMode, $modeIcons)} me-2" style="font-size: 0.9em; opacity: 0.7;"></i>
 				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
 			</div>
 			<div class="today-subtle-modes-dropdown">
@@ -315,6 +316,7 @@
 						onclick={() => { activeMode.set(mode); updateSettings({ modeTimeBlocksEnabled: false }); }}
 						style="padding: 0.4rem 0.85rem;"
 					>
+						<i class="fa-solid {getModeIcon(mode, $modeIcons)}" style="font-size: 0.8rem; opacity: 0.7;"></i>
 						<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
 					</button>
 				{/each}
@@ -376,8 +378,8 @@
 				<button class="icon-button search-launch-button" type="button" aria-label="Search actions" onclick={openSearch}>
 					<i class="fa-solid fa-magnifying-glass"></i>
 				</button>
-				<button class="btn btn-brand" type="button" onclick={openActionModal}>
-					<i class="fa-solid fa-plus me-2"></i>Add Action
+				<button class="btn btn-brand" type="button" aria-label="Add Action" onclick={openActionModal} style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.7rem;">
+					<i class="fa-solid fa-plus"></i>
 				</button>
 			</div>
 		</div>
@@ -498,8 +500,16 @@
 			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
 				<div>
 					<div class="section-label">Quick Capture</div>
-					<h2 class="h6 mt-2 mb-1" id="add-action-title-tomorrow">Add Actions</h2>
-					<p class="soft-text small mb-0">One line per action. The current mode will be used automatically.</p>
+					<div class="d-flex align-items-center gap-2 mt-2">
+						{#if $activeMode !== 'All Modes'}
+							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
+								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
+								{$activeMode}
+							</div>
+						{/if}
+						<h2 class="h6 mb-0" id="add-action-title-tomorrow">Add Actions</h2>
+					</div>
+					<p class="soft-text small mb-0 mt-1">One line per action. The current mode will be used automatically.</p>
 				</div>
 				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
 					<i class="fa-solid fa-xmark"></i>

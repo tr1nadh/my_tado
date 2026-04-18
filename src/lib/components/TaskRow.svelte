@@ -8,10 +8,14 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import {
+		activeMode,
 		closeTaskActions,
 		draggedTask,
 		endTaskDrag,
+		deleteMode,
+		getModeIcon,
 		hoveredTaskId,
+		modeIcons,
 		modes,
 		openTaskActions,
 		pauseTask,
@@ -90,7 +94,7 @@
 			: selectedTodayStar.value === 'yellow'
 				? 'fa-regular fa-star'
 				: 'fa-solid fa-star';
-	$: visibleModeBadge = showModeBadge && Boolean(task.mode) && task.mode !== 'All Modes';
+	$: visibleModeBadge = showModeBadge && Boolean(task.mode) && task.mode !== 'All Modes' && $activeMode === 'All Modes';
 	$: if (starMenuOpen && $hoveredTaskId !== task.id) {
 		closeStarMenu();
 	}
@@ -104,29 +108,18 @@
 		return 'fa-bolt';
 	}
 
-	function getModeBadgeMeta(mode) {
+	function getModeBadgeTone(mode) {
 		const normalizedMode = String(mode || '').toLowerCase();
-
-		if (normalizedMode.includes('work')) {
-			return { icon: 'fa-solid fa-briefcase', tone: 'work' };
-		}
-		if (normalizedMode.includes('home')) {
-			return { icon: 'fa-solid fa-house', tone: 'home' };
-		}
-		if (normalizedMode.includes('errand')) {
-			return { icon: 'fa-solid fa-bag-shopping', tone: 'errands' };
-		}
-		if (normalizedMode.includes('family')) {
-			return { icon: 'fa-solid fa-people-group', tone: 'family' };
-		}
-		if (normalizedMode.includes('health')) {
-			return { icon: 'fa-solid fa-heart-pulse', tone: 'health' };
-		}
-
-		return { icon: 'fa-solid fa-layer-group', tone: 'default' };
+		if (normalizedMode.includes('work')) return 'work';
+		if (normalizedMode.includes('home')) return 'home';
+		if (normalizedMode.includes('errand')) return 'errands';
+		if (normalizedMode.includes('family')) return 'family';
+		if (normalizedMode.includes('health')) return 'health';
+		return 'default';
 	}
 
-	function saveEdit() {
+	function saveEdit(event) {
+		event?.stopPropagation?.();
 		const nextTitle = stripDetectedDateText(draftTitle, editDateMatch);
 		if (!nextTitle) return;
 		skipEditBlurSave = true;
@@ -137,7 +130,8 @@
 		editing = false;
 	}
 
-	function cancelEdit() {
+	function cancelEdit(event) {
+		event?.stopPropagation?.();
 		skipEditBlurSave = true;
 		draftTitle = task.title;
 		editDismissedPhrase = '';
@@ -520,8 +514,8 @@
 				</div>
 			</div>
 			<div class="d-flex gap-2 flex-shrink-0">
-				<button class="icon-button" type="button" aria-label={`Save ${task.title}`} onclick={saveEdit}><i class="fa-solid fa-check"></i></button>
-				<button class="icon-button" type="button" aria-label={`Cancel editing ${task.title}`} onclick={cancelEdit}><i class="fa-solid fa-xmark"></i></button>
+				<button class="icon-button" type="button" aria-label={`Save ${task.title}`} onpointerdown={() => (skipEditBlurSave = true)} onclick={saveEdit}><i class="fa-solid fa-check"></i></button>
+				<button class="icon-button" type="button" aria-label={`Cancel editing ${task.title}`} onpointerdown={() => (skipEditBlurSave = true)} onclick={cancelEdit}><i class="fa-solid fa-xmark"></i></button>
 			</div>
 		</div>
 	{:else}
@@ -556,8 +550,8 @@
 						{/if}
 						{#if visibleModeBadge}
 							<div class="task-meta-row mt-1">
-								<div class={`task-mode-meta ${getModeBadgeMeta(task.mode).tone}`} aria-label={`Mode ${task.mode}`}>
-									<i class={getModeBadgeMeta(task.mode).icon} aria-hidden="true"></i>
+								<div class={`task-mode-meta ${getModeBadgeTone(task.mode)}`} aria-label={`Mode ${task.mode}`}>
+									<i class="fa-solid {getModeIcon(task.mode, $modeIcons)}" aria-hidden="true"></i>
 									<span>{task.mode}</span>
 								</div>
 							</div>
@@ -581,8 +575,8 @@
 									</div>
 								{/if}
 								{#if visibleModeBadge}
-									<div class={`task-mode-meta ${getModeBadgeMeta(task.mode).tone}`} aria-label={`Mode ${task.mode}`}>
-										<i class={getModeBadgeMeta(task.mode).icon} aria-hidden="true"></i>
+									<div class={`task-mode-meta ${getModeBadgeTone(task.mode)}`} aria-label={`Mode ${task.mode}`}>
+										<i class="fa-solid {getModeIcon(task.mode, $modeIcons)}" aria-hidden="true"></i>
 										<span>{task.mode}</span>
 									</div>
 								{/if}
@@ -626,8 +620,9 @@
 		</div>
 	{/if}
 
-	<div
-		class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`}
+	{#if !editing}
+		<div
+			class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`}
 		role="presentation"
 		onmouseenter={closeStarMenu}
 	>
@@ -670,12 +665,11 @@
 				aria-label={`Change mode for ${task.title}`}
 				onclick={() => (modePickerOpen = true)}
 			><i class="fa-solid fa-layer-group"></i></button>
-			{#if !editing}
-				<button class="icon-button" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
-			{/if}
+			<button class="icon-button" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
 		{/if}
 		<button class="icon-button" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
 	</div>
+	{/if}
 </div>
 
 {#if dueDateMenuOpen}
@@ -730,12 +724,15 @@
 
 			<div class="mode-picker-grid">
 				{#each selectableModes as mode}
-					<button
-						class={`mode-picker-button ${task.mode === mode ? 'active' : ''}`}
-						type="button"
-						onclick={() => setTaskMode(mode)}
-					>
-						<span>{mode}</span>
+						<button
+							class={`mode-picker-button ${task.mode === mode ? 'active' : ''}`}
+							type="button"
+							onclick={() => setTaskMode(mode)}
+						>
+							<div class="d-flex align-items-center gap-2">
+								<i class="fa-solid {getModeIcon(mode, $modeIcons)}"></i>
+								<span>{mode}</span>
+							</div>
 						{#if task.mode === mode}
 							<i class="fa-solid fa-check"></i>
 						{/if}

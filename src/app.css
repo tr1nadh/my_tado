@@ -3537,3 +3537,114 @@ body.task-drag-active * {
 	transform: translateY(0) scale(1);
     transition-delay: 80ms;
 }
+/* Settings Tabs & Nav */
+.settings-tabs-shell {
+	border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+	padding-bottom: 1rem;
+}
+
+.settings-tabs {
+	display: flex;
+	gap: 0.5rem;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.settings-tabs::-webkit-scrollbar {
+	display: none;
+}
+
+.settings-tab {
+	background: transparent;
+	border: none;
+	color: var(--soft-text);
+	padding: 0.6rem 1.25rem;
+	font-size: 0.85rem;
+	font-weight: 500;
+	border-radius: 100px;
+	white-space: nowrap;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	opacity: 0.7;
+}
+
+.settings-tab:hover {
+	color: var(--text-light);
+	background: rgba(255, 255, 255, 0.05);
+	opacity: 1;
+}
+
+.settings-tab.active {
+	color: #34d399;
+	background: rgba(52, 211, 153, 0.1);
+	opacity: 1;
+}
+
+/* Mode Editor List */
+.mode-editor-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.mode-editor-item {
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid rgba(255, 255, 255, 0.05);
+	border-radius: 12px;
+	padding: 0.75rem 1rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	transition: all 0.2s ease;
+}
+
+.mode-editor-item:hover {
+	background: rgba(255, 255, 255, 0.05);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
+.mode-editor-item.dragging {
+	opacity: 0.5;
+	background: rgba(255, 255, 255, 0.1);
+	border-style: dashed;
+}
+
+.mode-drag-handle {
+	cursor: grab;
+	padding: 0.25rem;
+	opacity: 0.4;
+	transition: opacity 0.2s;
+}
+
+.mode-drag-handle:hover {
+	opacity: 1;
+}
+
+.mode-name {
+	font-size: 0.9rem;
+	font-weight: 500;
+	color: var(--text-light);
+}
+
+.mode-editor-error {
+	background: rgba(239, 68, 68, 0.1);
+	color: #f87171;
+	padding: 0.75rem 1rem;
+	border-radius: 10px;
+	font-size: 0.85rem;
+	border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.settings-group {
+	border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.settings-row-title {
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--text-light);
+}
+
+.x-small {
+	font-size: 0.75rem;
+}
