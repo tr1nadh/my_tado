@@ -1120,8 +1120,8 @@
 			<button
 				class={`dock-button ${todayRailOpen ? 'active' : ''}`}
 				type="button"
-				aria-label={todayRailOpen ? 'Close Mode Blocks' : 'Open Mode Blocks'}
-				data-tooltip={todayRailOpen ? 'Hide Mode Blocks' : 'Show Mode Blocks'}
+				aria-label={todayRailOpen ? 'Close mode time block' : 'Open mode time block'}
+				data-tooltip={todayRailOpen ? 'Close mode time block' : 'Mode time block'}
 				onclick={() => (todayRailOpen = !todayRailOpen)}
 			>
 				<i class="fa-regular fa-calendar-days"></i>
@@ -1142,8 +1142,8 @@
 			<button
 				class="dock-button"
 				type="button"
-				aria-label="Show completed actions"
-				data-tooltip="Show completed actions"
+				aria-label="Completed actions"
+				data-tooltip="Completed actions"
 				onclick={openCompletedView}
 			>
 				<i class="fa-solid fa-check-double"></i>
