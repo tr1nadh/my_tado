@@ -235,7 +235,10 @@
 
 		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-			<div class="d-flex align-items-center gap-3 soft-text small">
+			<div class="d-flex align-items-center gap-3">
+				<div class="badge-soft rounded-pill px-3 py-2 font-monospace" style="font-size: 0.72rem; letter-spacing: 0.02em; font-weight: 600; text-transform: uppercase; opacity: 0.9;">
+					{openTasks.length} {openTasks.length === 1 ? 'action' : 'actions'} pending
+				</div>
 				{#if showDone}
 					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
 				{/if}
