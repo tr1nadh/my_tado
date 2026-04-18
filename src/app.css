@@ -3516,7 +3516,7 @@ body.task-drag-active * {
 	transition: all 200ms ease;
     z-index: 10;
 }
-.today-subtle-selector-shell:hover .today-subtle-mode-display {
+.today-subtle-selector-shell.open .today-subtle-mode-display {
 	opacity: 0;
 	transform: scale(0.95);
 	pointer-events: none;
@@ -3531,7 +3531,7 @@ body.task-drag-active * {
 	transform: translateY(-4px) scale(0.96);
 	transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.today-subtle-selector-shell:hover .today-subtle-modes-dropdown {
+.today-subtle-selector-shell.open .today-subtle-modes-dropdown {
 	opacity: 1;
 	pointer-events: auto;
 	transform: translateY(0) scale(1);

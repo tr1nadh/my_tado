@@ -65,9 +65,23 @@
 	let focusHoldStart = 0;
 	let focusHoldConsumed = false;
 	let todayRailOpen = false;
+	let modeDropdownOpen = false;
+	let modeDropdownTimer;
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
+	let timelineUpdateInterval;
 	let timelineGrid;
+
+	// Pre-calculate timeline hours once to avoid expensive re-renders
+	const hourFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true });
+	const todayTimelineHours = Array.from({ length: 24 }, (_, index) => {
+		const hourInTimeline = USER_DAY_START_HOUR + index;
+		const displayHour = hourInTimeline >= 24 ? hourInTimeline - 24 : hourInTimeline;
+		return {
+			key: hourInTimeline,
+			label: hourFormatter.format(new Date(2024, 0, 1, displayHour, 0, 0, 0))
+		};
+	});
 	let timeBlockResizeState = null;
 	let timeBlockDragState = null;
 	let selectedModeToAdd = null;
@@ -517,15 +531,22 @@
 		todayModeSummaryMap.values()
 	).sort((left, right) => right.count - left.count || left.mode.localeCompare(right.mode));
 	$: timeBlockModeOptions = $modes.filter((mode) => mode !== 'All Modes');
+	$: if ($settings.modeTimeBlocksEnabled) {
+		syncActiveModeToBlock();
+	}
+
 	$: taskModeOptions = timeBlockModeOptions.filter((mode) => mode !== 'Sleep');
 	$: if (!selectedModeToAdd && taskModeOptions.length > 0) {
 		selectedModeToAdd = taskModeOptions[0];
 	}
 	$: todayModeBlocks = getModeTimeBlocksForDate($settings, todayDate);
 	$: activeModeTimeBlock = getActiveModeTimeBlock($settings, new Date());
-	$: currentTimelineMinutes = (() => {
-		let mins = new Date().getHours() * 60 + new Date().getMinutes();
-		if (new Date().getHours() < USER_DAY_START_HOUR) {
+	
+	// Use state-based current minutes that update every minute via timer
+	let currentTimelineMinutes = (() => {
+		const now = new Date();
+		let mins = now.getHours() * 60 + now.getMinutes();
+		if (now.getHours() < USER_DAY_START_HOUR) {
 			mins += 1440;
 		}
 		return clamp(mins, timeBlockTimelineStart, timeBlockTimelineEnd);
@@ -541,78 +562,72 @@
 		if (duration <= 0) return 0;
 		return clamp(((currentTimelineMinutes - startMinutes) / duration) * 100, 0, 100);
 	})();
-	$: todayTimelineHours = Array.from({ length: 24 }, (_, index) => {
-		const hourInTimeline = USER_DAY_START_HOUR + index;
-		const displayHour = hourInTimeline >= 24 ? hourInTimeline - 24 : hourInTimeline;
-		return {
-			key: hourInTimeline,
-			label: new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true }).format(new Date(2024, 0, 1, displayHour, 0, 0, 0))
-		};
-	});
-	$: timelineBlocks = todayModeBlocks.map((block, index) => {
-		const startMinutes = timeToMinutes(block.startTime);
-		let endMinutes = timeToMinutes(block.endTime);
-		if (endMinutes <= startMinutes) {
-			endMinutes += 1440;
-		}
-
-		const totalMinutes = timeBlockTimelineEnd - timeBlockTimelineStart;
-		const durationMinutes = endMinutes - startMinutes;
-		const durationHours = (durationMinutes / 60).toFixed(1).replace(/\.0$/, '');
-		const top = ((startMinutes - timeBlockTimelineStart) / totalMinutes) * 100;
-		const height = (Math.max(durationMinutes, 15) / totalMinutes) * 100;
-
-		const hasCollision = todayModeBlocks.some((other, oIndex) => {
-			if (index === oIndex) return false;
-			const oStart = timeToMinutes(other.startTime);
-			let oEnd = timeToMinutes(other.endTime);
-			if (oEnd <= oStart) oEnd += 1440;
-			return startMinutes < oEnd && endMinutes > oStart;
-		});
-
-		const blockTasks = allTodayScopedTasks.filter((t) => t.mode === block.mode);
-
-		let progress = 0;
-		if (activeModeTimeBlock?.id === block.id) {
-			const now = currentTimelineMinutes;
-			progress = clamp(((now - startMinutes) / durationMinutes) * 100, 0, 100);
-		}
-
-		return {
-			...block,
-			top,
-			height,
-			durationDisplay: `${durationHours}h`,
-			active: activeModeTimeBlock?.id === block.id,
-			collision: hasCollision,
-			taskCount: blockTasks.length,
-			color: modeColorMap[block.mode] || modeColorMap.Default,
-			progress
-		};
-	});
-	$: timelineGaps = (() => {
-		const gaps = [];
-		const sorted = [...todayModeBlocks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-		
-		let lastEnd = timeBlockTimelineStart;
-		for (const block of sorted) {
+	$: timelineBlocks = (() => {
+		const blocksWithMinutes = todayModeBlocks.map(block => {
 			const start = timeToMinutes(block.startTime);
-			if (start - lastEnd >= 30) {
-				gaps.push({ start: lastEnd, end: start });
-			}
 			let end = timeToMinutes(block.endTime);
 			if (end <= start) end += 1440;
-			lastEnd = Math.max(lastEnd, end);
+			return { ...block, start, end };
+		});
+
+		return blocksWithMinutes.map((block, index) => {
+			const totalMinutes = timeBlockTimelineEnd - timeBlockTimelineStart;
+			const durationMinutes = block.end - block.start;
+			const durationHours = (durationMinutes / 60).toFixed(1).replace(/\.0$/, '');
+			const top = ((block.start - timeBlockTimelineStart) / totalMinutes) * 100;
+			const height = (Math.max(durationMinutes, 15) / totalMinutes) * 100;
+
+			const hasCollision = blocksWithMinutes.some((other, oIndex) => {
+				if (index === oIndex) return false;
+				return block.start < other.end && block.end > other.start;
+			});
+
+			const blockTasks = allTodayScopedTasks.filter((t) => t.mode === block.mode);
+
+			let progress = 0;
+			if (activeModeTimeBlock?.id === block.id) {
+				progress = clamp(((currentTimelineMinutes - block.start) / durationMinutes) * 100, 0, 100);
+			}
+
+			return {
+				...block,
+				top,
+				height,
+				durationDisplay: `${durationHours}h`,
+				active: activeModeTimeBlock?.id === block.id,
+				collision: hasCollision,
+				taskCount: blockTasks.length,
+				color: modeColorMap[block.mode] || modeColorMap.Default,
+				progress
+			};
+		});
+	})();
+	$: timelineGaps = (() => {
+		const gaps = [];
+		const blocksWithMinutes = todayModeBlocks.map(block => {
+			const start = timeToMinutes(block.startTime);
+			let end = timeToMinutes(block.endTime);
+			if (end <= start) end += 1440;
+			return { start, end };
+		}).sort((a, b) => a.start - b.start);
+		
+		let lastEnd = timeBlockTimelineStart;
+		for (const block of blocksWithMinutes) {
+			if (block.start - lastEnd >= 30) {
+				gaps.push({ start: lastEnd, end: block.start });
+			}
+			lastEnd = Math.max(lastEnd, block.end);
 		}
 		
 		if (timeBlockTimelineEnd - lastEnd >= 30) {
 			gaps.push({ start: lastEnd, end: timeBlockTimelineEnd });
 		}
 		
+		const totalMinutes = timeBlockTimelineEnd - timeBlockTimelineStart;
 		return gaps.map(gap => ({
 			...gap,
-			top: ((gap.start - timeBlockTimelineStart) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100,
-			height: ((gap.end - gap.start) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100
+			top: ((gap.start - timeBlockTimelineStart) / totalMinutes) * 100,
+			height: ((gap.end - gap.start) / totalMinutes) * 100
 		}));
 	})();
 	$: gapModalData = gapModalStartMinutes !== null 
@@ -803,7 +818,7 @@
 	onMount(() => {
 		syncActiveModeToBlock();
 
-		// Seed a default Sleep block for today if none exists yet (runs once on mount)
+		// Seed a default Sleep block for today if none exists yet
 		if ($settingsReady) {
 			const hasSleepForToday = ($settings.modeTimeBlocks || []).some(
 				(b) => b.date === todayDate && b.mode === 'Sleep'
@@ -820,26 +835,36 @@
 			}
 		}
 
+		function updateTimelineTime() {
+			const now = new Date();
+			let mins = now.getHours() * 60 + now.getMinutes();
+			if (now.getHours() < USER_DAY_START_HOUR) {
+				mins += 1440;
+			}
+			currentTimelineMinutes = clamp(mins, timeBlockTimelineStart, timeBlockTimelineEnd);
+			
+			// Also sync mode on minute rollover if enabled
+			if ($settings.modeTimeBlocksEnabled) {
+				syncActiveModeToBlock();
+			}
+		}
+
 		function handleKeydown(event) {
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
 					event.preventDefault();
 					submitActions();
 				}
-
 				if (event.key === 'Escape') {
 					event.preventDefault();
 					closeActionModal();
 				}
-
 				return;
 			}
-
 			if (event.ctrlKey && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
 				openSearch();
 			}
-
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				if (focusPauseModalOpen) {
@@ -859,13 +884,13 @@
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
 		modeBlockInterval = window.setInterval(syncActiveModeToBlock, 30000);
+		timelineUpdateInterval = window.setInterval(updateTimelineTime, 60000); // Live update now line every minute
+		
 		return () => {
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
-			if (modeBlockInterval) {
-				clearInterval(modeBlockInterval);
-				modeBlockInterval = undefined;
-			}
+			if (modeBlockInterval) clearInterval(modeBlockInterval);
+			if (timelineUpdateInterval) clearInterval(timelineUpdateInterval);
 		};
 	});
 
@@ -896,16 +921,29 @@
 		</div>
 	{/if}
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-		<div class="today-subtle-selector-shell" style="margin-bottom: 0;">
-			<div class="today-subtle-mode-display">
+		<div 
+			class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}" 
+			style="margin-bottom: 0;"
+			onmouseenter={() => { if (modeDropdownTimer) clearTimeout(modeDropdownTimer); }}
+			onmouseleave={() => { modeDropdownTimer = setTimeout(() => modeDropdownOpen = false, 400); }}
+		>
+			<button 
+				class="today-subtle-mode-display" 
+				type="button"
+				onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
+			>
 				<i class="fa-solid {getModeIcon($activeMode, $modeIcons)} me-2" style="font-size: 0.9em; opacity: 0.7;"></i>
 				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
-			</div>
+			</button>
 			<div class="today-subtle-modes-dropdown">
 				{#each $modes as mode}
 					<button 
 						class="mode-pill {$activeMode === mode ? 'active' : ''}" 
-						onclick={() => { activeMode.set(mode); updateSettings({ modeTimeBlocksEnabled: false }); }}
+						onclick={() => { 
+							activeMode.set(mode); 
+							updateSettings({ modeTimeBlocksEnabled: false });
+							modeDropdownOpen = false;
+						}}
 						style="padding: 0.4rem 0.85rem;"
 					>
 						<i class="fa-solid {getModeIcon(mode, $modeIcons)}" style="font-size: 0.8rem; opacity: 0.7;"></i>
