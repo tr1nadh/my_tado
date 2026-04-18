@@ -12,6 +12,7 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
+	import ZenProgress from '$lib/components/ZenProgress.svelte';
 	import {
 		activeMode,
 		addTask,
@@ -501,6 +502,8 @@
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = !showDone && pausedActions.length > 0 && (!pausedSection || !pausedVisible);
+	$: todayTotalCount = scopedTasks.length;
+	$: todayDoneCount = completedTasks.length;
 	$: todayModeSummaryMap = allTodayScopedTasks.reduce((summary, task) => {
 		const current = summary.get(task.mode) || { mode: task.mode, count: 0, overdueCount: 0 };
 		current.count += 1;
@@ -916,6 +919,7 @@
 			<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3">
 				<div class="d-flex align-items-baseline gap-2">
+					<ZenProgress completed={todayDoneCount} total={todayTotalCount} size={36} />
 				</div>
 				{#if showDone}
 					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
