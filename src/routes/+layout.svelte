@@ -277,7 +277,7 @@
 		{/if}
 
 		<div class={`app-content ${navCollapsed ? 'nav-collapsed' : ''} ${isHomePage ? 'home-shell' : ''}`}>
-			{#if page.url.pathname !== '/today' && page.url.pathname !== '/'}
+			{#if page.url.pathname !== '/today' && page.url.pathname !== '/' && page.url.pathname !== '/upcoming' && page.url.pathname !== '/inbox' && page.url.pathname !== '/settings'}
 				<section class="top-mode-bar">
 					<div class="container-fluid py-3 px-3 px-lg-4">
 						<div class="mode-strip">
