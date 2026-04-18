@@ -10,6 +10,15 @@ const defaultTodayStar = 'none';
 const defaultTodayStarLimit = 5;
 const defaultModeBlockStartTime = '09:00';
 const defaultModeBlockEndTime = '10:00';
+export const modeColorMap = {
+	Sleep: 'var(--muted)',
+	'Work Sprint': 'var(--blue)',
+	'Home Reset': 'var(--green)',
+	Errands: 'var(--amber)',
+	'Family Loop': 'var(--red)',
+	'Health Check': 'var(--cyan)',
+	Default: 'var(--blue)'
+};
 const defaultSettings = {
 	useUnifiedTodayStarLimit: true,
 	todayStarLimit: defaultTodayStarLimit,
@@ -40,7 +49,7 @@ function normalizeStarLimit(value, fallback = defaultTodayStarLimit) {
 
 function normalizeTimeString(value, fallback) {
 	if (typeof value !== 'string') return fallback;
-	const match = value.match(/^(\d{2}):(\d{2})$/);
+	const match = value.match(/^(\d{1,2}):(\d{2})$/);
 	if (!match) return fallback;
 
 	const hours = Number.parseInt(match[1], 10);
@@ -101,7 +110,15 @@ function normalizeModeTimeBlock(block, fallbackDate = formatDate(new Date())) {
 function normalizeModeTimeBlocks(list) {
 	return (Array.isArray(list) ? list : [])
 		.map((block) => normalizeModeTimeBlock(block))
-		.sort((left, right) => timeToMinutes(left.startTime) - timeToMinutes(right.startTime));
+		.sort((left, right) => {
+			let leftMinutes = timeToMinutes(left.startTime);
+			let rightMinutes = timeToMinutes(right.startTime);
+
+			if (leftMinutes < USER_DAY_START_HOUR * 60) leftMinutes += 1440;
+			if (rightMinutes < USER_DAY_START_HOUR * 60) rightMinutes += 1440;
+
+			return leftMinutes - rightMinutes;
+		});
 }
 
 export function getTodayStarLimits(value) {

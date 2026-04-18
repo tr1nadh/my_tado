@@ -23,6 +23,7 @@
 		isToday,
 		modeMatches,
 		modes,
+		modeColorMap,
 		pauseTask,
 		rescheduleTasksToToday,
 		resumeTask,
@@ -67,6 +68,8 @@
 	let timeBlockResizeState = null;
 	let timeBlockDragState = null;
 	let selectedModeToAdd = null;
+	let selectedBlockId = null;
+	let gapModalStartMinutes = null;
 	const todayDate = getLocalDateKey(new Date());
 	const timeBlockTimelineStart = USER_DAY_START_HOUR * 60;
 	const timeBlockTimelineEnd = (USER_DAY_START_HOUR + 24) * 60;
@@ -75,6 +78,7 @@
 	const minTimeBlockMinutes = 15;
 
 	const todayStarOrder = ['red', 'blue', 'yellow', 'none'];
+	const activeModeBlockFly = { y: -20, duration: 300, delay: 100 };
 
 	function formatDayLabel(date) {
 		return new Intl.DateTimeFormat(undefined, {
@@ -278,7 +282,7 @@
 		const nextBlock = normalizeBlockDraft({
 			id: crypto.randomUUID(),
 			date: todayDate,
-			mode: modeName || allModeOptions[0] || 'Work Sprint',
+			mode: modeName || (timeBlockModeOptions[0] || 'Work Sprint'),
 			startTime: nextStartTime,
 			endTime: minutesToTime(startMinutes + timeBlockFallbackDuration)
 		});
@@ -314,6 +318,40 @@
 			activeMode.set(activeBlock.mode);
 			lastAutoSwitchedBlockId = activeBlock.id;
 		}
+	}
+
+	function handleBlockClick(event, blockId) {
+		event.stopPropagation();
+		if (selectedBlockId === blockId) {
+			selectedBlockId = null;
+		} else {
+			selectedBlockId = blockId;
+		}
+	}
+
+	function handleGapClick(startMinutes) {
+		gapModalStartMinutes = startMinutes;
+		selectedBlockId = null;
+	}
+
+	function closeGapModal() {
+		gapModalStartMinutes = null;
+	}
+
+	function submitGapBlock(modeName) {
+		if (!gapModalStartMinutes) return;
+
+		const nextBlock = normalizeBlockDraft({
+			id: crypto.randomUUID(),
+			date: todayDate,
+			mode: modeName,
+			startTime: minutesToTime(gapModalStartMinutes),
+			endTime: minutesToTime(gapModalStartMinutes + 60)
+		});
+
+		persistModeBlocks([...$settings.modeTimeBlocks, nextBlock]);
+		selectedBlockId = nextBlock.id;
+		closeGapModal();
 	}
 
 	function stopTimeBlockResize() {
@@ -473,9 +511,10 @@
 	$: todayModeSummaries = Array.from(
 		todayModeSummaryMap.values()
 	).sort((left, right) => right.count - left.count || left.mode.localeCompare(right.mode));
-	$: allModeOptions = $modes.filter((mode) => mode !== 'All Modes');
-	$: if (!selectedModeToAdd && allModeOptions.length > 0) {
-		selectedModeToAdd = allModeOptions[0];
+	$: timeBlockModeOptions = $modes.filter((mode) => mode !== 'All Modes');
+	$: taskModeOptions = timeBlockModeOptions.filter((mode) => mode !== 'Sleep');
+	$: if (!selectedModeToAdd && taskModeOptions.length > 0) {
+		selectedModeToAdd = taskModeOptions[0];
 	}
 	$: todayModeBlocks = getModeTimeBlocksForDate($settings, todayDate);
 	$: activeModeTimeBlock = getActiveModeTimeBlock($settings, new Date());
@@ -488,6 +527,15 @@
 	})();
 	$: currentTimelineTop =
 		((currentTimelineMinutes - timeBlockTimelineStart) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100;
+	$: activeModeBlockProgress = (() => {
+		if (!activeModeTimeBlock) return 0;
+		const startMinutes = timeToMinutes(activeModeTimeBlock.startTime);
+		let endMinutes = timeToMinutes(activeModeTimeBlock.endTime);
+		if (endMinutes <= startMinutes) endMinutes += 1440;
+		const duration = endMinutes - startMinutes;
+		if (duration <= 0) return 0;
+		return clamp(((currentTimelineMinutes - startMinutes) / duration) * 100, 0, 100);
+	})();
 	$: todayTimelineHours = Array.from({ length: 24 }, (_, index) => {
 		const hourInTimeline = USER_DAY_START_HOUR + index;
 		const displayHour = hourInTimeline >= 24 ? hourInTimeline - 24 : hourInTimeline;
@@ -496,7 +544,7 @@
 			label: new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true }).format(new Date(2024, 0, 1, displayHour, 0, 0, 0))
 		};
 	});
-	$: timelineBlocks = todayModeBlocks.map((block) => {
+	$: timelineBlocks = todayModeBlocks.map((block, index) => {
 		const startMinutes = timeToMinutes(block.startTime);
 		let endMinutes = timeToMinutes(block.endTime);
 		if (endMinutes <= startMinutes) {
@@ -509,28 +557,65 @@
 		const top = ((startMinutes - timeBlockTimelineStart) / totalMinutes) * 100;
 		const height = (Math.max(durationMinutes, 15) / totalMinutes) * 100;
 
+		const hasCollision = todayModeBlocks.some((other, oIndex) => {
+			if (index === oIndex) return false;
+			const oStart = timeToMinutes(other.startTime);
+			let oEnd = timeToMinutes(other.endTime);
+			if (oEnd <= oStart) oEnd += 1440;
+			return startMinutes < oEnd && endMinutes > oStart;
+		});
+
+		const blockTasks = allTodayScopedTasks.filter((t) => t.mode === block.mode);
+
+		let progress = 0;
+		if (activeModeTimeBlock?.id === block.id) {
+			const now = currentTimelineMinutes;
+			progress = clamp(((now - startMinutes) / durationMinutes) * 100, 0, 100);
+		}
+
 		return {
 			...block,
 			top,
 			height,
 			durationDisplay: `${durationHours}h`,
-			active: activeModeTimeBlock?.id === block.id
+			active: activeModeTimeBlock?.id === block.id,
+			collision: hasCollision,
+			taskCount: blockTasks.length,
+			color: modeColorMap[block.mode] || modeColorMap.Default,
+			progress
 		};
 	});
+	$: timelineGaps = (() => {
+		const gaps = [];
+		const sorted = [...todayModeBlocks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+		
+		let lastEnd = timeBlockTimelineStart;
+		for (const block of sorted) {
+			const start = timeToMinutes(block.startTime);
+			if (start - lastEnd >= 30) {
+				gaps.push({ start: lastEnd, end: start });
+			}
+			let end = timeToMinutes(block.endTime);
+			if (end <= start) end += 1440;
+			lastEnd = Math.max(lastEnd, end);
+		}
+		
+		if (timeBlockTimelineEnd - lastEnd >= 30) {
+			gaps.push({ start: lastEnd, end: timeBlockTimelineEnd });
+		}
+		
+		return gaps.map(gap => ({
+			...gap,
+			top: ((gap.start - timeBlockTimelineStart) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100,
+			height: ((gap.end - gap.start) / (timeBlockTimelineEnd - timeBlockTimelineStart)) * 100
+		}));
+	})();
+	$: gapModalData = gapModalStartMinutes !== null 
+		? timelineGaps.find(g => g.start === gapModalStartMinutes) 
+		: null;
+
 	$: if (browser && $settingsReady) {
 		syncActiveModeToBlock();
-
-		const hasSleepForToday = todayModeBlocks.some((b) => b.mode === 'Sleep');
-		if (!hasSleepForToday) {
-			const sleepBlock = normalizeBlockDraft({
-				id: `sleep-default-${todayDate}`,
-				date: todayDate,
-				mode: 'Sleep',
-				startTime: '22:00',
-				endTime: '06:00'
-			});
-			persistModeBlocks([...$settings.modeTimeBlocks, sleepBlock]);
-		}
 	}
 	$: actionLines = actionDraft.split('\n');
 	$: actionHighlightHtml = actionLines
@@ -713,6 +798,23 @@
 	onMount(() => {
 		syncActiveModeToBlock();
 
+		// Seed a default Sleep block for today if none exists yet (runs once on mount)
+		if ($settingsReady) {
+			const hasSleepForToday = ($settings.modeTimeBlocks || []).some(
+				(b) => b.date === todayDate && b.mode === 'Sleep'
+			);
+			if (!hasSleepForToday) {
+				const sleepBlock = normalizeBlockDraft({
+					id: `sleep-default-${todayDate}`,
+					date: todayDate,
+					mode: 'Sleep',
+					startTime: '22:00',
+					endTime: '06:00'
+				});
+				persistModeBlocks([...($settings.modeTimeBlocks || []), sleepBlock]);
+			}
+		}
+
 		function handleKeydown(event) {
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -771,16 +873,46 @@
 </script>
 
 <div class="actions-panel-shell">
-	<section class="glass-panel rounded-4 p-4 fade-up">
-		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-			<div class="d-flex align-items-center gap-3 soft-text small">
-				<span>{scopedTasks.filter((task) => !task.done && !task.paused).length} open</span>
-				{#if pausedActions.length}
-					<span>{pausedActions.length} paused</span>
-				{/if}
-				{#if overdueTasks.length}
-					<span>{overdueTasks.length} overdue</span>
-				{/if}
+	{#if activeModeTimeBlock}
+		<div class="today-dashboard-active-mode" style={`--block-color: ${modeColorMap[activeModeTimeBlock.mode] || modeColorMap.Default};`} in:fly={activeModeBlockFly}>
+			<div class="active-mode-badge" style="background: var(--block-color);">
+				<i class="fa-solid fa-bolt"></i>
+				Live Now
+			</div>
+			<div class="active-mode-details">
+				<div class="active-mode-name">{activeModeTimeBlock.mode}</div>
+				<div class="active-mode-time">
+					{formatTimeLabel(activeModeTimeBlock.startTime)} — {formatTimeLabel(activeModeTimeBlock.endTime)}
+				</div>
+			</div>
+			<div class="active-mode-progress-track">
+				<div class="active-mode-progress-fill" style={`width: ${activeModeBlockProgress}%; transition: width 0.5s ease-out;`}></div>
+			</div>
+		</div>
+	{/if}
+	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
+		<div class="today-subtle-selector-shell" style="margin-bottom: 0;">
+			<div class="today-subtle-mode-display">
+				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
+			</div>
+			<div class="today-subtle-modes-dropdown">
+				{#each $modes as mode}
+					<button 
+						class="mode-pill {$activeMode === mode ? 'active' : ''}" 
+						onclick={() => { activeMode.set(mode); updateSettings({ modeTimeBlocksEnabled: false }); }}
+						style="padding: 0.4rem 0.85rem;"
+					>
+						<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
+			<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+			<div class="d-flex align-items-center gap-3">
+				<div class="d-flex align-items-baseline gap-2">
+				</div>
 				{#if showDone}
 					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
 				{/if}
@@ -793,8 +925,8 @@
 					class={`toolbar-button focus-mode-trigger ${focusView !== 'overview' ? 'active' : ''} ${focusPressing ? 'pressing' : ''}`}
 					type="button"
 					aria-label={focusView === 'overview' ? 'Enter Focus Today' : `Exit ${focusModeLabel}`}
-					title="Click for semi focus. Long press or right-click for single action focus."
-					style={`--focus-hold-progress:${focusHoldProgress};`}
+					title={focusView === 'overview' ? 'Focus mode' : `Exit ${focusModeLabel}`}
+					style={`--focus-hold-progress:${focusHoldProgress}; width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;`}
 					oncontextmenu={handleFocusButtonContextMenu}
 					onkeydown={handleFocusButtonKeydown}
 					onpointerdown={startFocusHold}
@@ -802,11 +934,10 @@
 					onpointercancel={cancelFocusHold}
 					onpointerleave={cancelFocusHold}
 				>
-					<i class={`${focusView === 'single' ? 'fa-solid fa-bullseye' : 'fa-solid fa-star'} me-2`}></i>
-					{focusView === 'overview' ? 'Focus mode' : `Exit ${focusModeLabel}`}
+					<i class={`${focusView === 'single' ? 'fa-solid fa-bullseye' : 'fa-solid fa-star'}`}></i>
 				</button>
-				<button class="btn btn-brand" type="button" onclick={openActionModal}>
-					<i class="fa-solid fa-plus me-2"></i>Add Action
+				<button class="btn btn-brand" type="button" aria-label="Add Action" onclick={openActionModal} style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.7rem;">
+					<i class="fa-solid fa-plus"></i>
 				</button>
 			</div>
 		</div>
@@ -933,7 +1064,7 @@
 				{/if}
 
 				<section>
-					<div class="list-heading">Today</div>
+					<div class="list-heading">Today <span class="ms-2 fw-normal" style="opacity: 0.6;">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span></div>
 					<div class="task-list">
 						{#if todayActiveActions.length}
 							{#each todayActiveActions as task (task.id)}
@@ -974,8 +1105,9 @@
 			</div>
 		{/if}
 	</section>
+	</div>
 
-	<aside class="right-dock">
+	<aside class="right-dock" style="margin-top: 3.7rem;">
 		{#if !$settings.todayRailPinned}
 			<button
 				class={`dock-button ${todayRailOpen ? 'active' : ''}`}
@@ -1026,76 +1158,55 @@
 	<div class="today-time-rail-container {$settings.todayRailPinned ? 'pinned' : ''}">
 		<aside
 			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
-			aria-label="Today mode time blocks"
+			aria-label="Today time blocks"
 		>
-
-
-		<div class="today-time-rail-content">
-			<div class="today-time-rail-head align-items-center pb-2 mb-3 border-bottom border-light border-opacity-10">
-				<div>
-					<div class="section-label mb-0 text-white">Mode Blocks</div>
-					<div class="today-time-rail-date mt-1 text-muted" style="font-size: 0.8rem; font-weight: 500;">{formatDayLabel(new Date())}</div>
-				</div>
-				<div class="d-flex align-items-center gap-3">
-					<label class="form-check form-switch d-flex align-items-center gap-2 mb-0" style="margin: 0; cursor: pointer;" title="Auto-switch mode via schedule">
-						<span class="soft-text small" style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase;">Auto</span>
-						<input
-							class="form-check-input m-0 cursor-pointer"
-							type="checkbox"
-							style="width: 2rem; height: 1rem;"
-							checked={$settings.modeTimeBlocksEnabled}
-							onchange={(event) => updateSettings({ modeTimeBlocksEnabled: event.currentTarget.checked })}
-						/>
-					</label>
-					<div class="d-flex align-items-center gap-1 border-start border-light border-opacity-25 ps-2 ms-1">
-						<button
-							class={`icon-button ${$settings.todayRailPinned ? 'text-primary' : 'text-muted'}`}
-							style="width: 1.8rem; height: 1.8rem; font-size: 0.85rem;"
-							type="button"
-							aria-label={$settings.todayRailPinned ? 'Unpin blocks' : 'Pin blocks'}
-							title={$settings.todayRailPinned ? 'Unpin' : 'Pin to side'}
-							onclick={() => updateSettings({ todayRailPinned: !$settings.todayRailPinned })}
-						>
-							<i class={`fa-solid fa-thumbtack ${!$settings.todayRailPinned ? 'fa-rotate-90' : ''}`}></i>
-						</button>
-						{#if !$settings.todayRailPinned}
+			<div class="today-time-rail-content">
+				<div class="today-time-rail-head align-items-center pb-2 mb-3 border-bottom border-light border-opacity-10">
+					<div>
+						<div class="section-label mb-0 text-white">Time block</div>
+						<div class="today-time-rail-date mt-1 text-muted" style="font-size: 0.8rem; font-weight: 500;">{formatDayLabel(new Date())}</div>
+					</div>
+					<div class="d-flex align-items-center gap-3">
+						<label class="form-check form-switch d-flex align-items-center gap-2 mb-0" style="margin: 0; cursor: pointer;" title="Auto-switch mode via schedule">
+							<span class="soft-text small" style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase;">Auto</span>
+							<input
+								class="form-check-input m-0 cursor-pointer"
+								type="checkbox"
+								style="width: 2rem; height: 1rem;"
+								checked={$settings.modeTimeBlocksEnabled}
+								onchange={(event) => updateSettings({ modeTimeBlocksEnabled: event.currentTarget.checked })}
+							/>
+						</label>
+						<div class="d-flex align-items-center gap-1 border-start border-light border-opacity-25 ps-2 ms-1">
 							<button
-								class="icon-button text-muted"
-								style="width: 1.8rem; height: 1.8rem; font-size: 0.95rem;"
+								class={`icon-button ${$settings.todayRailPinned ? 'text-primary' : 'text-muted'}`}
+								style="width: 1.8rem; height: 1.8rem; font-size: 0.85rem;"
 								type="button"
-								aria-label="Close mode blocks"
-								title="Close"
-								onclick={() => (todayRailOpen = false)}
+								aria-label={$settings.todayRailPinned ? 'Unpin blocks' : 'Pin blocks'}
+								title={$settings.todayRailPinned ? 'Unpin' : 'Pin to side'}
+								onclick={() => updateSettings({ todayRailPinned: !$settings.todayRailPinned })}
 							>
-								<i class="fa-solid fa-xmark"></i>
+								<i class={`fa-solid fa-thumbtack ${!$settings.todayRailPinned ? 'fa-rotate-90' : ''}`}></i>
 							</button>
-						{/if}
+							{#if !$settings.todayRailPinned}
+								<button
+									class="icon-button text-muted"
+									style="width: 1.8rem; height: 1.8rem; font-size: 0.95rem;"
+									type="button"
+									aria-label="Close mode blocks"
+									title="Close"
+									onclick={() => (todayRailOpen = false)}
+								>
+									<i class="fa-solid fa-xmark"></i>
+								</button>
+							{/if}
+						</div>
 					</div>
 				</div>
-			</div>
 
-			{#if activeModeTimeBlock}
-				<div class="today-time-current-block">
-					<div class="section-label">Live Now</div>
-					<div class="today-time-current-title">{activeModeTimeBlock.mode}</div>
-					<div class="soft-text small">
-						{formatTimeLabel(activeModeTimeBlock.startTime)} to {formatTimeLabel(activeModeTimeBlock.endTime)}
-					</div>
-				</div>
-			{/if}
 
-			<div class="today-time-mode-palette">
-				<div class="d-flex align-items-center gap-2 mt-2">
-					<select class="form-select flex-grow-1" bind:value={selectedModeToAdd}>
-						{#each allModeOptions as modeName (modeName)}
-							<option value={modeName}>{modeName} ({todayModeSummaryMap.get(modeName)?.count || 0})</option>
-						{/each}
-					</select>
-					<button class="toolbar-button flex-shrink-0" type="button" onclick={() => addModeTimeBlock(selectedModeToAdd)}>
-						<i class="fa-solid fa-plus me-2"></i>Add
-					</button>
-				</div>
-			</div>
+
+
 
 			<div class="today-time-calendar-shell">
 				<div class="today-time-calendar">
@@ -1115,45 +1226,122 @@
 							<span>Now</span>
 						</div>
 
+						{#if gapModalStartMinutes !== null && gapModalData}
+							<div 
+								class="gap-add-modal-overlay" 
+								style={`--gap-top: ${gapModalData.top}%; --gap-height: ${gapModalData.height}%;`}
+							>
+								<div class="gap-add-modal">
+									<button class="gap-add-modal-close" type="button" aria-label="Close" onclick={closeGapModal}>
+										<i class="fa-solid fa-xmark"></i>
+									</button>
+									<div class="gap-add-modal-title">Block Time</div>
+									<div class="small soft-text mb-3">
+										Starts at {formatTimeLabel(minutesToTime(gapModalStartMinutes))}
+									</div>
+									
+									<div class="gap-add-modal-grid">
+										{#each timeBlockModeOptions as mode (mode)}
+											<button 
+												class="gap-mode-chip" 
+												type="button"
+												style={`--chip-color: ${modeColorMap[mode] || modeColorMap.Default};`}
+												onclick={() => submitGapBlock(mode)}
+											>
+												<span class="gap-mode-chip-dot"></span>
+												{mode}
+											</button>
+										{/each}
+									</div>
+								</div>
+							</div>
+						{/if}
+
+						{#if timelineGaps.length}
+							{#each timelineGaps as gap}
+								<div 
+									class="today-time-gap" 
+									style={`top: ${gap.top}%; height: ${gap.height}%;`}
+									onclick={() => handleGapClick(gap.start)}
+									role="button"
+									tabindex="0"
+									onkeydown={(e) => e.key === 'Enter' && handleGapClick(gap.start)}
+								>
+									<i class="fa-solid fa-plus"></i>
+									Fill Gap
+								</div>
+							{/each}
+						{/if}
+
 						{#if timelineBlocks.length}
 							{#each timelineBlocks as block (block.id)}
 								<div
-									class={`today-time-block ${block.active ? 'active' : ''} ${timeBlockDragState?.blockId === block.id ? 'dragging' : ''}`}
-									style={`top:${block.top}%;height:${block.height}%; cursor: ${timeBlockDragState?.blockId === block.id ? 'grabbing' : 'grab'};`}
+									class={`today-time-block ${block.active ? 'active' : ''} ${selectedBlockId === block.id ? 'selected' : ''} ${block.collision ? 'collision' : ''} ${timeBlockDragState?.blockId === block.id ? 'dragging' : ''}`}
+									style={`top:${block.top}%; height:${block.height}%; cursor: ${timeBlockDragState?.blockId === block.id ? 'grabbing' : 'grab'}; --block-color: ${block.color};`}
 									onpointerdown={(event) => startTimeBlockDrag(event, block)}
+									onclick={(event) => handleBlockClick(event, block.id)}
+									role="button"
+									tabindex="0"
+									onkeydown={(e) => e.key === 'Enter' && handleBlockClick(e, block.id)}
 								>
-									<button
-										class="today-time-block-handle top"
-										type="button"
-										aria-label={`Resize ${block.mode} block start`}
-										onpointerdown={(event) => startTimeBlockResize(event, block, 'start')}
-									></button>
-									<div class="today-time-block-mode">{block.mode} <span class="ms-1 opacity-50 pe-none" style="font-size: 0.75em;">({block.durationDisplay})</span></div>
-									<div class="today-time-block-range">
-										{formatTimeLabel(block.startTime)} to {formatTimeLabel(block.endTime)}
+									{#if selectedBlockId === block.id}
+										<button
+											class="today-time-block-delete"
+											type="button"
+											title="Delete block"
+											onclick={(e) => { e.stopPropagation(); removeModeTimeBlock(block.id); }}
+										>
+											<i class="fa-solid fa-trash-can"></i>
+										</button>
+									{/if}
+
+										<button
+											class="today-time-block-handle top"
+											type="button"
+											aria-label={`Resize ${block.mode} block start`}
+											onpointerdown={(event) => startTimeBlockResize(event, block, 'start')}
+										></button>
+
+										<div class="today-time-block-mode">
+											{block.mode} 
+											<span class="ms-1 opacity-50 pe-none" style="font-size: 0.75em;">({block.durationDisplay})</span>
+										</div>
+
+										<div class="today-time-block-range">
+											{formatTimeLabel(block.startTime)} to {formatTimeLabel(block.endTime)}
+										</div>
+
+										{#if block.taskCount > 0}
+											<div class="today-time-block-count">
+												<i class="fa-solid fa-list-check"></i>
+												{block.taskCount} {block.taskCount === 1 ? 'action' : 'actions'}
+											</div>
+										{/if}
+
+										{#if block.active}
+											<div class="today-time-block-progress" style={`width: ${block.progress}%;`}></div>
+										{/if}
+
+										<button
+											class="today-time-block-handle bottom"
+											type="button"
+											aria-label={`Resize ${block.mode} block end`}
+											onpointerdown={(event) => startTimeBlockResize(event, block, 'end')}
+										></button>
 									</div>
-									<button
-										class="today-time-block-handle bottom"
-										type="button"
-										aria-label={`Resize ${block.mode} block end`}
-										onpointerdown={(event) => startTimeBlockResize(event, block, 'end')}
-									></button>
+								{/each}
+							{:else}
+								<div class="today-time-empty">
+									<i class="fa-regular fa-clock"></i>
+									<span>Block time for a mode to make Today switch automatically.</span>
 								</div>
-							{/each}
-						{:else}
-							<div class="today-time-empty">
-								<i class="fa-regular fa-clock"></i>
-								<span>Block time for a mode to make Today switch automatically.</span>
-							</div>
-						{/if}
+							{/if}
+						</div>
 					</div>
 				</div>
-
-	</div>
-		</div>
+			</div>
 		</aside>
 	</div>
-
 </div>
 
 {#if focusView === 'single'}

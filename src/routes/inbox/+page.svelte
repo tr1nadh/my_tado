@@ -11,7 +11,7 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import { activeMode, addTask, clearDoneForMode, modeMatches, tasks } from '$lib/tasks';
+	import { activeMode, addTask, clearDoneForMode, modeMatches, modes, tasks, updateSettings } from '$lib/tasks';
 
 	let search = '';
 	let showDone = false;
@@ -213,7 +213,25 @@
 </script>
 
 <div class="actions-panel-shell">
-	<section class="glass-panel rounded-4 p-4 fade-up">
+	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
+		<div class="today-subtle-selector-shell" style="margin-bottom: 0;">
+			<div class="today-subtle-mode-display">
+				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
+			</div>
+			<div class="today-subtle-modes-dropdown">
+				{#each $modes as mode}
+					<button 
+						class="mode-pill {$activeMode === mode ? 'active' : ''}" 
+						onclick={() => { activeMode.set(mode); updateSettings({ modeTimeBlocksEnabled: false }); }}
+						style="padding: 0.4rem 0.85rem;"
+					>
+						<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3 soft-text small">
 				<span>{activeActions.length} open</span>
@@ -289,6 +307,7 @@
 			</div>
 		{/if}
 	</section>
+	</div>
 
 	{#if !showDone && completedTasks.length}
 		<button
