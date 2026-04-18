@@ -236,10 +236,6 @@
 		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3 soft-text small">
-				<span>{activeActions.length} open</span>
-				{#if pausedActions.length}
-					<span>{pausedActions.length} paused</span>
-				{/if}
 				{#if showDone}
 					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
 				{/if}
@@ -458,7 +454,6 @@
 
 			<div class="search-results-shell mt-3">
 				{#if search.trim()}
-					<div class="soft-text small mb-2">{modalSearchedTasks.length} match{modalSearchedTasks.length === 1 ? '' : 'es'}</div>
 					{#if modalSearchedTasks.length}
 						<div class="search-results-list task-list">
 							{#each modalSearchedTasks as task (task.id)}

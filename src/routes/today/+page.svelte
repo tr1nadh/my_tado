@@ -1315,12 +1315,6 @@
 											{formatTimeLabel(block.startTime)} to {formatTimeLabel(block.endTime)}
 										</div>
 
-										{#if block.taskCount > 0}
-											<div class="today-time-block-count">
-												<i class="fa-solid fa-list-check"></i>
-												{block.taskCount} {block.taskCount === 1 ? 'action' : 'actions'}
-											</div>
-										{/if}
 
 										{#if block.active}
 											<div class="today-time-block-progress" style={`width: ${block.progress}%;`}></div>
@@ -1374,9 +1368,6 @@
 
 			{#if activeFocusTask}
 				<div class="focus-overlay-body">
-					<div class="focus-overlay-count">
-						<span class="focus-overlay-count-number">{focusIndex + 1} / {focusActions.length}</span>
-					</div>
 
 					<div class="focus-overlay-stage">
 						<button class="focus-nav-button" type="button" aria-label="Previous action" onclick={showPrevFocus}>
@@ -1581,7 +1572,6 @@
 
 			<div class="search-results-shell mt-3">
 				{#if search.trim()}
-					<div class="soft-text small mb-2">{modalSearchedTasks.length} match{modalSearchedTasks.length === 1 ? '' : 'es'}</div>
 					{#if modalSearchedTasks.length}
 						<div class="search-results-list task-list">
 							{#each modalSearchedTasks as task (task.id)}
