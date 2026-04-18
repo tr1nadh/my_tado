@@ -11,7 +11,6 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import ZenProgress from '$lib/components/ZenProgress.svelte';
 	import { activeMode, addTask, clearDoneForMode, getModeIcon, modeColorMap, modeIcons, modeMatches, modes, tasks, updateSettings } from '$lib/tasks';
 
 	let search = '';
@@ -45,8 +44,6 @@
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = !showDone && pausedActions.length > 0 && (!pausedSection || !pausedVisible);
-	$: inboxTotalCount = modeTasks.length;
-	$: inboxDoneCount = completedTasks.length;
 	$: actionLines = actionDraft.split('\n');
 	$: actionHighlightHtml = actionLines
 		.map((line, index) => {
@@ -239,7 +236,6 @@
 		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3 soft-text small">
-				<ZenProgress completed={inboxDoneCount} total={inboxTotalCount} size={36} />
 				{#if showDone}
 					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
 				{/if}
