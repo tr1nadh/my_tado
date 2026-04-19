@@ -1208,30 +1208,16 @@
 								onchange={(event) => updateSettings({ modeTimeBlocksEnabled: event.currentTarget.checked })}
 							/>
 						</label>
-						<div class="d-flex align-items-center gap-1 border-start border-light border-opacity-25 ps-2 ms-1">
-							<button
-								class={`icon-button ${$settings.todayRailPinned ? 'text-primary' : 'text-muted'}`}
-								style="width: 1.8rem; height: 1.8rem; font-size: 0.85rem;"
-								type="button"
-								aria-label={$settings.todayRailPinned ? 'Unpin blocks' : 'Pin blocks'}
-								title={$settings.todayRailPinned ? 'Unpin' : 'Pin to side'}
-								onclick={() => updateSettings({ todayRailPinned: !$settings.todayRailPinned })}
-							>
-								<i class={`fa-solid fa-thumbtack ${!$settings.todayRailPinned ? 'fa-rotate-90' : ''}`}></i>
-							</button>
-							{#if !$settings.todayRailPinned}
-								<button
-									class="icon-button text-muted"
-									style="width: 1.8rem; height: 1.8rem; font-size: 0.95rem;"
-									type="button"
-									aria-label="Close mode blocks"
-									title="Close"
-									onclick={() => (todayRailOpen = false)}
-								>
-									<i class="fa-solid fa-xmark"></i>
-								</button>
-							{/if}
-						</div>
+						<button
+							class="icon-button text-muted"
+							style="width: 1.8rem; height: 1.8rem; font-size: 0.95rem;"
+							type="button"
+							aria-label="Close mode blocks"
+							title="Close"
+							onclick={() => (todayRailOpen = false)}
+						>
+							<i class="fa-solid fa-xmark"></i>
+						</button>
 					</div>
 				</div>
 
