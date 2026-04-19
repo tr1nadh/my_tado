@@ -924,21 +924,26 @@
 		<div 
 			class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}" 
 			style="margin-bottom: 0;"
-			onmouseenter={() => { if (modeDropdownTimer) clearTimeout(modeDropdownTimer); }}
-			onmouseleave={() => { modeDropdownTimer = setTimeout(() => modeDropdownOpen = false, 400); }}
+			onmouseenter={() => { 
+				if (modeDropdownTimer) clearTimeout(modeDropdownTimer); 
+			}}
+			onmouseleave={() => { 
+				modeDropdownTimer = setTimeout(() => modeDropdownOpen = false, 300); 
+			}}
 		>
 			<button 
 				class="today-subtle-mode-display" 
 				type="button"
+				onmouseenter={() => modeDropdownOpen = true}
 				onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
 			>
 				<i class="fa-solid {getModeIcon($activeMode, $modeIcons)} me-2" style="font-size: 0.9em; opacity: 0.7;"></i>
 				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
 			</button>
 			<div class="today-subtle-modes-dropdown">
-				{#each $modes as mode}
+				{#each $modes.filter(m => m !== $activeMode) as mode}
 					<button 
-						class="mode-pill {$activeMode === mode ? 'active' : ''}" 
+						class="mode-pill" 
 						onclick={() => { 
 							activeMode.set(mode); 
 							updateSettings({ modeTimeBlocksEnabled: false });
