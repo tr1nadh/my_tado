@@ -20,57 +20,26 @@
 	import GlobalClock from '$lib/components/GlobalClock.svelte';
 
 	const { children } = $props();
-	let navCollapsed = $state(false);
 	let modeEditorOpen = $state(false);
 	let modeEditorKind = $state('create');
 	let modeDraft = $state('');
 	let modeError = $state('');
 	let modeMenuOpenFor = $state(null);
-	let mobileNavOpen = $state(false);
 	let modeActionTarget = $state('All Modes');
 	let draggedMode = $state(null);
 	const todayDateNumber = new Date().getDate();
 	const isHomePage = $derived(page.url.pathname === '/');
 
-	const navItems = [
-		{ href: '/today', label: 'Today', description: 'Due now', icon: 'date' },
-		{ href: '/upcoming', label: 'Upcoming', description: 'Plan ahead', icon: 'fa-calendar-days' }
-	];
-
-	const settingsNavItem = { href: '/settings', label: 'Settings', description: 'Personalize Karya', icon: 'fa-sliders' };
+	const navItems = [{ href: '/today', label: 'Today', description: 'Due now', icon: 'date' }];
 	const searchableRoutes = new Set(navItems.map((item) => item.href));
 
 	onMount(() => {
 		initTasks();
 		initDesktopUpdater();
-		navCollapsed = localStorage.getItem('saas-nav-collapsed') === 'true';
 
 		return () => {
 		};
 	});
-
-	function toggleNav() {
-		navCollapsed = !navCollapsed;
-		localStorage.setItem('saas-nav-collapsed', String(navCollapsed));
-	}
-
-	function handleSideNavKeydown(event) {
-		if (event.key === 'ArrowLeft' && !navCollapsed) {
-			event.preventDefault();
-			navCollapsed = true;
-			localStorage.setItem('saas-nav-collapsed', 'true');
-		}
-
-		if (event.key === 'ArrowRight' && navCollapsed) {
-			event.preventDefault();
-			navCollapsed = false;
-			localStorage.setItem('saas-nav-collapsed', 'false');
-		}
-	}
-
-	function closeMobileNav() {
-		mobileNavOpen = false;
-	}
 
 	function triggerMobileSearch() {
 		window.dispatchEvent(new CustomEvent('karya:mobile-search'));
@@ -190,9 +159,7 @@
 	<div class="app-shell">
 		{#if !isHomePage}
 			<header class="mobile-topbar glass-panel">
-				<button class="icon-button" type="button" aria-label="Open navigation" onclick={() => (mobileNavOpen = true)}>
-					<i class="fa-solid fa-bars"></i>
-				</button>
+				<div class="mobile-topbar-spacer" aria-hidden="true"></div>
 				<div class="mobile-topbar-title">Karya</div>
 				{#if searchableRoutes.has(page.url.pathname)}
 					<button class="icon-button" type="button" aria-label="Search actions" onclick={triggerMobileSearch}>
@@ -204,69 +171,9 @@
 			</header>
 		{/if}
 
-		{#if !isHomePage}
-			<aside class={`glass-panel side-dock side-dock-layout fade-up ${navCollapsed ? 'collapsed' : ''}`}>
-				<div class={`d-flex ${navCollapsed ? 'justify-content-center' : 'align-items-center'} gap-3 mb-4`}>
-							<div class:nav-copy-hidden={navCollapsed}>
-								<div class="sidebar-title">Karya</div>
-							</div>
-						<button
-							class="icon-button ms-auto d-none d-xl-inline-flex"
-							type="button"
-							aria-label={navCollapsed ? 'Expand side navigation' : 'Collapse side navigation'}
-							title={navCollapsed ? 'Expand nav' : 'Collapse nav'}
-							onclick={toggleNav}
-							onkeydown={handleSideNavKeydown}
-						>
-							<i class={`fa-solid ${navCollapsed ? 'fa-angles-right' : 'fa-angles-left'}`}></i>
-						</button>
-				</div>
 
-				<div class="d-grid gap-2 mb-4">
-					{#each navItems as item}
-						<a
-							class={`nav-item-button ${page.url.pathname === item.href ? 'active' : ''}`}
-							href={item.href}
-							title={item.label}
-							onclick={closeMobileNav}
-							onkeydown={handleSideNavKeydown}
-						>
-							<span class="nav-icon">
-								{#if isDateIcon(item)}
-									<span class="nav-date-icon">{todayDateNumber}</span>
-								{:else}
-									<i class={`fa-solid ${item.icon}`}></i>
-								{/if}
-							</span>
-							<span class={`text-start nav-item-copy ${navCollapsed ? 'd-none' : ''}`}>
-								<span class="d-block fw-semibold">{item.label}</span>
-								<span class="soft-text small">{item.description}</span>
-							</span>
-						</a>
-					{/each}
-				</div>
 
-				<div class="mt-auto pt-2">
-					<a
-						class={`nav-item-button ${page.url.pathname === settingsNavItem.href ? 'active' : ''}`}
-						href={settingsNavItem.href}
-						title={settingsNavItem.label}
-						onclick={closeMobileNav}
-						onkeydown={handleSideNavKeydown}
-					>
-						<span class="nav-icon">
-							<i class={`fa-solid ${settingsNavItem.icon}`}></i>
-						</span>
-						<span class={`text-start nav-item-copy ${navCollapsed ? 'd-none' : ''}`}>
-							<span class="d-block fw-semibold">{settingsNavItem.label}</span>
-							<span class="soft-text small">{settingsNavItem.description}</span>
-						</span>
-					</a>
-				</div>
-			</aside>
-		{/if}
-
-		<div class={`app-content ${navCollapsed ? 'nav-collapsed' : ''} ${isHomePage ? 'home-shell' : ''}`}>
+		<div class={`app-content ${isHomePage ? 'home-shell' : ''}`}>
 			{#if page.url.pathname !== '/today' && page.url.pathname !== '/' && page.url.pathname !== '/upcoming' && page.url.pathname !== '/inbox' && page.url.pathname !== '/settings'}
 				<section class="top-mode-bar">
 					<div class="container-fluid py-3 px-3 px-lg-4">
@@ -338,95 +245,7 @@
 	</div>
 </div>
 
-{#if !isHomePage}
-	<nav class="mobile-bottom-nav glass-panel" aria-label="Mobile navigation">
-		{#each [...navItems, settingsNavItem] as item}
-			<a
-				class={`mobile-bottom-link ${page.url.pathname === item.href ? 'active' : ''}`}
-				href={item.href}
-				title={item.label}
-			>
-				{#if isDateIcon(item)}
-					<span class="nav-date-icon">{todayDateNumber}</span>
-				{:else}
-					<i class={`fa-solid ${item.icon}`}></i>
-				{/if}
-				<span>{item.label}</span>
-			</a>
-		{/each}
-	</nav>
-{/if}
 
-{#if !isHomePage && mobileNavOpen}
-	<div
-		class="pause-modal-backdrop mobile-nav-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close navigation"
-		onclick={closeMobileNav}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeMobileNav()}
-	>
-		<div
-			class="mobile-nav-sheet glass-panel"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="mobile-nav-title"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeMobileNav()}
-		>
-			<div class="d-flex align-items-center justify-content-between gap-3 mb-4">
-				<div>
-					<div class="section-label">Navigation</div>
-					<div class="mobile-nav-title" id="mobile-nav-title">Karya</div>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close navigation" onclick={closeMobileNav}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
-
-			<div class="d-grid gap-2">
-				{#each navItems as item}
-					<a
-						class={`nav-item-button ${page.url.pathname === item.href ? 'active' : ''}`}
-						href={item.href}
-						title={item.label}
-						onclick={closeMobileNav}
-					>
-						<span class="nav-icon">
-							{#if isDateIcon(item)}
-								<span class="nav-date-icon">{todayDateNumber}</span>
-							{:else}
-								<i class={`fa-solid ${item.icon}`}></i>
-							{/if}
-						</span>
-						<span class="text-start">
-							<span class="d-block fw-semibold">{item.label}</span>
-							<span class="soft-text small">{item.description}</span>
-						</span>
-					</a>
-				{/each}
-			</div>
-
-			<div class="mt-4 pt-3 border-top border-light border-opacity-10">
-				<a
-					class={`nav-item-button ${page.url.pathname === settingsNavItem.href ? 'active' : ''}`}
-					href={settingsNavItem.href}
-					title={settingsNavItem.label}
-					onclick={closeMobileNav}
-				>
-					<span class="nav-icon">
-						<i class={`fa-solid ${settingsNavItem.icon}`}></i>
-					</span>
-					<span class="text-start">
-						<span class="d-block fw-semibold">{settingsNavItem.label}</span>
-						<span class="soft-text small">{settingsNavItem.description}</span>
-					</span>
-				</a>
-			</div>
-		</div>
-	</div>
-{/if}
 
 {#if $desktopUpdate.available}
 	<div

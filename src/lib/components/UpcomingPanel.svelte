@@ -11,7 +11,6 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import { activeMode, addTask, clearDoneForMode, getModeIcon, modeColorMap, modeIcons, modeMatches, modes, tasks, updateSettings } from '$lib/tasks';
 
 	let search = '';
@@ -26,6 +25,9 @@
 	let pausedObserver;
 	let panelDirection = 1;
 	let actionDismissedPhrases = [];
+	export let open = false;
+	export let closePanel = () => {};
+
 	let selectedDate = '';
 	let selectedMonth = '';
 	let selectedYear = '';
@@ -303,11 +305,26 @@
 	onDestroy(() => pausedObserver?.disconnect());
 </script>
 
-<div class="actions-panel-shell">
-	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-		<SubtleHeader />
+<div class="upcoming-offcanvas-root" class:open={open}>
+	<button
+		type="button"
+		class="upcoming-offcanvas-scrim"
+		aria-label="Close upcoming panel"
+		onclick={closePanel}
+	></button>
+	<div class="today-time-rail-container upcoming-offcanvas-rail-slot">
+	<aside
+		class={`today-time-rail ${open ? 'open' : 'collapsed'} floating upcoming-rail`}
+		aria-label="Upcoming"
+	>
+		<div class="today-time-rail-content" style="padding: 1.5rem; overflow-y: auto;">
+			<div class="d-flex align-items-center justify-content-between mb-4">
+				<h2 class="h5 mb-0">Upcoming</h2>
+				<button class="icon-button" type="button" aria-label="Close" title="Close" onclick={closePanel}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
 
-		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 		<div class="row g-2 mb-4">
 			<div class="col-12 col-md-4">
 				<select class="form-select" bind:value={selectedMonth}>
@@ -422,44 +439,9 @@
 				{/if}
 			</div>
 		{/if}
-	</section>
 	</div>
-
-	{#if !showDone && completedTasks.length}
-		<button
-			class="view-toggle-button view-toggle-right"
-			type="button"
-			aria-label="Show completed actions"
-			data-tooltip="Show completed actions"
-			onclick={openCompletedView}
-		>
-			<i class="fa-solid fa-check-double"></i>
-		</button>
-	{/if}
-
-	{#if showDone}
-		<button
-			class="view-toggle-button view-toggle-left"
-			type="button"
-			aria-label="Show pending actions"
-			data-tooltip="Show pending actions"
-			onclick={openPendingView}
-		>
-			<i class="fa-solid fa-list"></i>
-		</button>
-	{/if}
-
-	{#if showPausedJump}
-		<button
-			class="view-toggle-button paused-jump-button"
-			type="button"
-			aria-label="Jump to paused actions"
-			data-tooltip="Jump to paused actions"
-			onclick={jumpToPaused}
-		>
-			<i class="fa-solid fa-pause"></i>
-		</button>
-	{/if}
+	</aside>
+	</div>
 </div>
 
 {#if actionModalOpen}
@@ -590,3 +572,48 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.upcoming-offcanvas-root {
+		position: fixed;
+		inset: 0;
+		z-index: 1040;
+		pointer-events: none;
+	}
+
+	.upcoming-offcanvas-root.open {
+		pointer-events: auto;
+	}
+
+	.upcoming-offcanvas-scrim {
+		position: absolute;
+		inset: 0;
+		border: 0;
+		padding: 0;
+		margin: 0;
+		background: rgba(0, 0, 0, 0.45);
+		opacity: 0;
+		transition: opacity 0.22s ease;
+		cursor: default;
+	}
+
+	.upcoming-offcanvas-root.open .upcoming-offcanvas-scrim {
+		opacity: 1;
+	}
+
+	.upcoming-offcanvas-rail-slot {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 0;
+		height: 100%;
+		max-height: 100dvh;
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.upcoming-offcanvas-root.open .upcoming-offcanvas-rail-slot {
+		pointer-events: auto;
+	}
+</style>

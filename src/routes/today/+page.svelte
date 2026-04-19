@@ -16,6 +16,8 @@
 	import { toast } from '$lib/toast';
 	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import ZenProgress from '$lib/components/ZenProgress.svelte';
+	import UpcomingPanel from '$lib/components/UpcomingPanel.svelte';
+	import InboxPanel from '$lib/components/InboxPanel.svelte';
 	import {
 		activeMode,
 		addTask,
@@ -68,6 +70,9 @@
 	let focusHoldStart = 0;
 	let focusHoldConsumed = false;
 	let todayRailOpen = false;
+	let upcomingRailOpen = false;
+	let inboxRailOpen = false;
+	let activeIslandTab = 'Today';
 	let timelineGrid;
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
@@ -281,12 +286,52 @@
 	}
 
 	function openTodayRail() {
+		if (upcomingRailOpen) {
+			upcomingRailOpen = false;
+			activeIslandTab = 'Today';
+		}
+		if (inboxRailOpen) {
+			inboxRailOpen = false;
+			activeIslandTab = 'Today';
+		}
 		todayRailOpen = true;
 	}
 
 	function closeTodayRail() {
 		if ($settings.todayRailPinned) return;
 		todayRailOpen = false;
+	}
+
+	function toggleTodayRail() {
+		if (todayRailOpen) {
+			closeTodayRail();
+		} else {
+			openTodayRail();
+		}
+	}
+
+	function toggleUpcomingRail() {
+		if (upcomingRailOpen) {
+			upcomingRailOpen = false;
+			activeIslandTab = 'Today';
+		} else {
+			if (todayRailOpen && !$settings.todayRailPinned) todayRailOpen = false;
+			inboxRailOpen = false;
+			upcomingRailOpen = true;
+			activeIslandTab = 'Upcoming';
+		}
+	}
+
+	function toggleInboxRail() {
+		if (inboxRailOpen) {
+			inboxRailOpen = false;
+			activeIslandTab = 'Today';
+		} else {
+			if (todayRailOpen && !$settings.todayRailPinned) todayRailOpen = false;
+			upcomingRailOpen = false;
+			inboxRailOpen = true;
+			activeIslandTab = 'Inbox';
+		}
 	}
 
 	function persistModeBlocks(nextBlocks) {
@@ -889,6 +934,16 @@
 			}
 			if (event.key === 'Escape') {
 				event.preventDefault();
+				if (inboxRailOpen) {
+					inboxRailOpen = false;
+					activeIslandTab = 'Today';
+					return;
+				}
+				if (upcomingRailOpen) {
+					upcomingRailOpen = false;
+					activeIslandTab = 'Today';
+					return;
+				}
 				if (focusPauseModalOpen) {
 					focusPauseModalOpen = false;
 					return;
@@ -924,7 +979,7 @@
 	});
 </script>
 
-<div class="actions-panel-shell">
+<div class="actions-panel-shell has-dynamic-island">
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
 		<SubtleHeader 
 			activeModeTimeBlock={activeModeTimeBlock} 
@@ -1181,7 +1236,7 @@
 				type="button"
 				aria-label={todayRailOpen ? 'Close mode time block' : 'Open mode time block'}
 				data-tooltip={todayRailOpen ? 'Close mode time block' : 'Mode time block'}
-				onclick={() => (todayRailOpen = !todayRailOpen)}
+				onclick={toggleTodayRail}
 			>
 				<i class="fa-regular fa-calendar-days"></i>
 			</button>
@@ -1642,6 +1697,42 @@
 	</div>
 {/if}
 
+<InboxPanel bind:open={inboxRailOpen} closePanel={() => { inboxRailOpen = false; activeIslandTab = 'Today'; }} />
+
+<UpcomingPanel bind:open={upcomingRailOpen} closePanel={() => { upcomingRailOpen = false; activeIslandTab = 'Today'; }} />
+
+<!-- Dynamic Island–style nav (bottom center) -->
+<nav class="dynamic-island-nav" aria-label="Primary">
+	<button
+		type="button"
+		class={`island-tab ${activeIslandTab === 'Inbox' ? 'active' : ''}`}
+		onclick={toggleInboxRail}
+	>
+		<span class="island-label">Inbox</span>
+	</button>
+
+	<button
+		type="button"
+		class={`island-tab ${activeIslandTab === 'Today' ? 'active' : ''}`}
+		onclick={() => {
+			if (upcomingRailOpen) upcomingRailOpen = false;
+			if (inboxRailOpen) inboxRailOpen = false;
+			activeIslandTab = 'Today';
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		}}
+	>
+		<span class="island-label">Today</span>
+	</button>
+
+	<button
+		type="button"
+		class={`island-tab ${activeIslandTab === 'Upcoming' ? 'active' : ''}`}
+		onclick={toggleUpcomingRail}
+	>
+		<span class="island-label">Upcoming</span>
+	</button>
+</nav>
+
 <ToastContainer />
 
 <style>
@@ -1710,4 +1801,61 @@
 	:global(.today-time-block.active:hover) {
 		box-shadow: 0 0 16px rgba(100, 100, 100, 0.15);
 	}
+	/* Reserve space so scrollable content never sits under the fixed island */
+	.actions-panel-shell.has-dynamic-island {
+		padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+	}
+
+	.dynamic-island-nav {
+		position: fixed;
+		left: 50%;
+		bottom: max(1rem, calc(0.65rem + env(safe-area-inset-bottom, 0px)));
+		top: auto;
+		transform: translateX(-50%);
+		display: flex;
+		align-items: center;
+		padding: 0.35rem 0.5rem;
+		gap: 0.2rem;
+		background: var(--panel);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		border-radius: 999px;
+		border: 1px solid var(--line);
+		box-shadow: var(--shadow);
+		z-index: 1025;
+	}
+
+	.island-tab {
+		position: relative;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--muted);
+		padding: 0.55rem 1.15rem;
+		border-radius: 999px;
+		font-weight: 600;
+		font-size: 0.82rem;
+		cursor: pointer;
+		transition:
+			background 0.2s ease,
+			border-color 0.2s ease,
+			color 0.2s ease;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.island-tab:hover:not(:disabled) {
+		color: var(--text);
+		background: rgba(45, 127, 249, 0.1);
+		border-color: rgba(129, 181, 255, 0.12);
+	}
+
+	.island-tab.active {
+		color: var(--text);
+		background: rgba(45, 127, 249, 0.2);
+		border-color: rgba(89, 213, 255, 0.22);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	}
+
 </style>

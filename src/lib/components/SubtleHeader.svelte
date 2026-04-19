@@ -80,7 +80,16 @@
 		</div>
 	</div>
 
-	<GlobalClock />
+	<div class="subtle-header-clock-actions d-flex align-items-center gap-2 gap-md-3">
+		<GlobalClock />
+		<a
+			href="/settings"
+			class="icon-button subtle-header-settings"
+			aria-label="Settings"
+		>
+			<i class="fa-solid fa-gear" style="font-size: 1.1rem;"></i>
+		</a>
+	</div>
 </div>
 
 <style>
@@ -228,5 +237,21 @@
 	.mode-pill-label {
 		font-size: 0.85rem;
 		font-weight: 500;
+	}
+
+	.subtle-header-clock-actions {
+		flex-shrink: 0;
+		align-items: center;
+	}
+
+	.subtle-header-settings {
+		width: 2rem;
+		height: 2rem;
+		opacity: 0.65;
+		transition: opacity 0.2s ease;
+	}
+
+	.subtle-header-settings:hover {
+		opacity: 1;
 	}
 </style>
