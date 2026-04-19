@@ -527,9 +527,18 @@ export function reorderTaskToTarget(taskId, targetTaskId, placement = 'before') 
 
 		const nextList = [...list];
 		const [movedTask] = nextList.splice(fromIndex, 1);
+		
+		const targetTask = list[targetIndex];
+		if (targetTask) {
+			movedTask.todayStar = targetTask.todayStar;
+			movedTask.dueDate = targetTask.dueDate;
+			movedTask.paused = targetTask.paused;
+		}
+
 		const insertBaseIndex = placement === 'after' ? targetIndex + 1 : targetIndex;
 		const adjustedTargetIndex = fromIndex < insertBaseIndex ? insertBaseIndex - 1 : insertBaseIndex;
 		nextList.splice(adjustedTargetIndex, 0, movedTask);
+
 		return nextList;
 	});
 }

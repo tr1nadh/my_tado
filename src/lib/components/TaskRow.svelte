@@ -333,12 +333,17 @@
 
 	function handleRowPointerDown(event) {
 		if (editing || pauseModalOpen || dueDateModalOpen || isInteractiveTarget(event.target)) return;
+		if (!event.target?.closest?.('.task-drag-handle')) return;
 
 		pendingDrag = {
 			pointerId: event.pointerId,
 			startX: event.clientX,
 			startY: event.clientY
 		};
+		
+		try {
+			event.target.releasePointerCapture(event.pointerId);
+		} catch (e) {}
 	}
 
 	function handleWindowPointerDown(event) {
@@ -524,6 +529,9 @@
 			role="presentation"
 			onpointerdown={handleRowPointerDown}
 		>
+			<div class="task-drag-handle" aria-hidden="true">
+				<i class="fa-solid fa-grip-vertical"></i>
+			</div>
 			<div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
 				<div class="min-w-0 flex-grow-1">
 					{#if task.paused}

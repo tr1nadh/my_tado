@@ -180,7 +180,7 @@
 			if (leftOverdue !== rightOverdue) return rightOverdue - leftOverdue;
 
 			if (left.dueDate !== right.dueDate) return String(left.dueDate || '').localeCompare(String(right.dueDate || ''));
-			return (right.createdAt || 0) - (left.createdAt || 0);
+			return 0;
 		});
 	}
 
@@ -901,16 +901,12 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
-		
-		const timelineInterval = setInterval(() => {
-			now = new Date();
-			syncActiveModeToBlock();
-		}, 60000);
+		updateTimelineTime();
+		timelineUpdateInterval = setInterval(updateTimelineTime, 60000);
 
 		return () => {
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
-			clearInterval(timelineInterval);
 			if (modeBlockInterval) clearInterval(modeBlockInterval);
 			if (timelineUpdateInterval) clearInterval(timelineUpdateInterval);
 		};

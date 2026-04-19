@@ -1561,6 +1561,33 @@ body {
 	flex-shrink: 0;
 }
 
+.task-drag-handle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 1.5rem;
+	height: 1.5rem;
+	align-self: center;
+	color: rgba(255, 255, 255, 0.12);
+	font-size: 0.8rem;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.task-line:hover .task-drag-handle {
+	opacity: 1;
+}
+
+.task-line-dragging .task-drag-handle {
+	cursor: grabbing;
+	opacity: 0.6;
+}
+
 .task-matrix-note {
 	display: inline-flex;
 	align-items: center;
@@ -1775,6 +1802,7 @@ body.task-drag-active,
 body.task-drag-active * {
 	user-select: none !important;
 	-webkit-user-select: none !important;
+	touch-action: none !important;
 }
 
 .task-text-line {
