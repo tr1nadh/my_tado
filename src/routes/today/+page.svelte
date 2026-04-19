@@ -87,6 +87,7 @@
 	let timeBlockDragState = null;
 	let selectedModeToAdd = null;
 	let selectedBlockId = null;
+	let backlogExpanded = false;
 	let gapModalStartMinutes = null;
 	let todayDate = getLocalDateKey(new Date());
 	const timeBlockTimelineStart = USER_DAY_START_HOUR * 60;
@@ -473,7 +474,10 @@
 		? [] 
 		: $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
-	$: modalSearchedTasks = scopedTasks.filter((task) => {
+	$: backlogTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && !isToday(task.dueDate) && !isOverdue(task.dueDate));
+	
+	$: searchPoolTasks = [...scopedTasks, ...backlogTasks];
+	$: modalSearchedTasks = searchPoolTasks.filter((task) => {
 		const matchesSearch =
 			!search ||
 			task.title.toLowerCase().includes(search.toLowerCase());
@@ -1013,6 +1017,7 @@
 									disableOptions={searchOpen}
 									showTodayStarControls
 									showModeBadge
+									hideDueDate={true}
 								/>
 							</div>
 						{/each}
@@ -1047,6 +1052,7 @@
 										disableOptions={searchOpen}
 										showTodayStarControls
 										showModeBadge
+										hideDueDate={true}
 									/>
 								</div>
 							{/each}
@@ -1076,6 +1082,7 @@
 										showTodayStarControls
 										showTodayStarBadge
 										showModeBadge
+										hideDueDate={true}
 									/>
 								</div>
 							{/each}
@@ -1095,6 +1102,7 @@
 										showTodayStarControls
 										showTodayStarBadge
 										showModeBadge
+										hideDueDate={true}
 									/>
 								</div>
 							{/each}
@@ -1123,10 +1131,42 @@
 										showTodayStarControls
 										showTodayStarBadge
 										showModeBadge
+										hideDueDate={true}
 									/>
 								</div>
 							{/each}
 						</div>
+					</section>
+				{/if}
+
+				{#if backlogTasks && backlogTasks.length > 0}
+					<section class="mt-5 mb-5 backlog-section">
+						<button 
+							class="list-heading backlog-toggle border-0 bg-transparent p-0 d-flex align-items-center gap-2 w-100 text-start" 
+							type="button" 
+							onclick={() => backlogExpanded = !backlogExpanded}
+							style="opacity: 0.6; cursor: pointer; transition: opacity 0.2s;"
+							onmouseover={(e) => e.currentTarget.style.opacity='1'}
+							onmouseout={(e) => e.currentTarget.style.opacity='0.6'}
+						>
+							<i class="fa-solid fa-chevron-{backlogExpanded ? 'down' : 'right'}" style="font-size: 0.85em; width: 14px; text-align: center;"></i>
+							<span>Backlog & Upcoming</span>
+							<span class="badge-soft rounded-pill px-2 py-1 ms-2 font-monospace" style="font-size: 0.65rem; font-weight: 600;">{backlogTasks.length}</span>
+						</button>
+						
+						{#if backlogExpanded}
+							<div class="task-list mt-4">
+								{#each backlogTasks as task (task.id)}
+									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+										<TaskRow
+											{task}
+											disableOptions={searchOpen}
+											showModeBadge
+										/>
+									</div>
+								{/each}
+							</div>
+						{/if}
 					</section>
 				{/if}
 			</div>
@@ -1391,11 +1431,7 @@
 								<div class="paused-reason-task soft-text">{activeFocusTask.title}</div>
 							{/if}
 
-							{#if activeFocusTask.dueDate}
-								<div class="task-due-note focus-overlay-due">
-									<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(activeFocusTask.dueDate)}
-								</div>
-							{/if}
+
 
 							<div class="focus-overlay-actions">
 								<button class="btn btn-brand focus-complete-button" type="button" onclick={completeFocusTask}>

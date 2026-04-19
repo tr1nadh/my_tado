@@ -34,6 +34,7 @@
 	export let showTodayStarControls = false;
 	export let disableOptions = false;
 	export let showModeBadge = false;
+	export let hideDueDate = false;
 
 	let editing = false;
 	let pauseModalOpen = false;
@@ -575,9 +576,9 @@
 						>
 							<div class={`task-title ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						</div>
-						{#if task.dueDate || visibleModeBadge}
+						{#if (task.dueDate && !hideDueDate) || visibleModeBadge}
 							<div class="task-meta-row mt-1">
-								{#if task.dueDate}
+								{#if task.dueDate && !hideDueDate}
 									<div class="task-due-note">
 										<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
 									</div>

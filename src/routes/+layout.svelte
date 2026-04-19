@@ -34,8 +34,7 @@
 
 	const navItems = [
 		{ href: '/today', label: 'Today', description: 'Due now', icon: 'date' },
-		{ href: '/upcoming', label: 'Upcoming', description: 'Plan ahead', icon: 'fa-calendar-days' },
-		{ href: '/inbox', label: 'All Actions', description: 'Everything by mode', icon: 'fa-list-check' }
+		{ href: '/upcoming', label: 'Upcoming', description: 'Plan ahead', icon: 'fa-calendar-days' }
 	];
 
 	const settingsNavItem = { href: '/settings', label: 'Settings', description: 'Personalize Karya', icon: 'fa-sliders' };
