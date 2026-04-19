@@ -12,6 +12,8 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
+	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import { toast } from '$lib/toast';
 	import ZenProgress from '$lib/components/ZenProgress.svelte';
 	import {
 		activeMode,
@@ -87,7 +89,7 @@
 	let selectedModeToAdd = null;
 	let selectedBlockId = null;
 	let gapModalStartMinutes = null;
-	const todayDate = getLocalDateKey(new Date());
+	let todayDate = getLocalDateKey(new Date());
 	const timeBlockTimelineStart = USER_DAY_START_HOUR * 60;
 	const timeBlockTimelineEnd = (USER_DAY_START_HOUR + 24) * 60;
 	const timeBlockFallbackDuration = 60;
@@ -327,7 +329,10 @@
 
 		const activeBlock = getActiveModeTimeBlock($settings, new Date());
 		if (!activeBlock) {
-			lastAutoSwitchedBlockId = null;
+			if (lastAutoSwitchedBlockId !== null || $activeMode !== 'All Modes') {
+				activeMode.set('All Modes');
+				lastAutoSwitchedBlockId = null;
+			}
 			return;
 		}
 
@@ -464,7 +469,10 @@
 		window.addEventListener('pointercancel', stopTimeBlockDrag);
 	}
 
-	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
+	$: isGapHidden = $settings.modeTimeBlocksEnabled && !activeModeTimeBlock;
+	$: scopedTasks = isGapHidden 
+		? [] 
+		: $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: modalSearchedTasks = scopedTasks.filter((task) => {
 		const matchesSearch =
@@ -531,7 +539,7 @@
 		todayModeSummaryMap.values()
 	).sort((left, right) => right.count - left.count || left.mode.localeCompare(right.mode));
 	$: timeBlockModeOptions = $modes.filter((mode) => mode !== 'All Modes');
-	$: if ($settings.modeTimeBlocksEnabled) {
+	$: if ($settings.modeTimeBlocksEnabled && $settingsReady) {
 		syncActiveModeToBlock();
 	}
 
@@ -540,7 +548,13 @@
 		selectedModeToAdd = taskModeOptions[0];
 	}
 	$: todayModeBlocks = getModeTimeBlocksForDate($settings, todayDate);
-	$: activeModeTimeBlock = getActiveModeTimeBlock($settings, new Date());
+	$: activeModeTimeBlock = (() => {
+		// Depend on currentTimelineMinutes to re-calculate every minute
+		// Depend on todayDate to re-calculate at rollover
+		currentTimelineMinutes;
+		todayDate;
+		return getActiveModeTimeBlock($settings, new Date());
+	})();
 	
 	// Use state-based current minutes that update every minute via timer
 	let currentTimelineMinutes = (() => {
@@ -634,9 +648,10 @@
 		? timelineGaps.find(g => g.start === gapModalStartMinutes) 
 		: null;
 
-	$: if (browser && $settingsReady) {
-		syncActiveModeToBlock();
-	}
+	// Initial sync handled by the reactive block above
+	// $: if (browser && $settingsReady) {
+	// 	syncActiveModeToBlock();
+	// }
 	$: actionLines = actionDraft.split('\n');
 	$: actionHighlightHtml = actionLines
 		.map((line, index) => {
@@ -843,6 +858,11 @@
 			}
 			currentTimelineMinutes = clamp(mins, timeBlockTimelineStart, timeBlockTimelineEnd);
 			
+			const newDateKey = getLocalDateKey(now);
+			if (newDateKey !== todayDate) {
+				todayDate = newDateKey;
+			}
+
 			// Also sync mode on minute rollover if enabled
 			if ($settings.modeTimeBlocksEnabled) {
 				syncActiveModeToBlock();
@@ -883,7 +903,6 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
-		modeBlockInterval = window.setInterval(syncActiveModeToBlock, 30000);
 		timelineUpdateInterval = window.setInterval(updateTimelineTime, 60000); // Live update now line every minute
 		
 		return () => {
@@ -903,23 +922,6 @@
 </script>
 
 <div class="actions-panel-shell">
-	{#if activeModeTimeBlock}
-		<div class="today-dashboard-active-mode" style={`--block-color: ${modeColorMap[activeModeTimeBlock.mode] || modeColorMap.Default};`} in:fly={activeModeBlockFly}>
-			<div class="active-mode-badge" style="background: var(--block-color);">
-				<i class="fa-solid {getModeIcon(activeModeTimeBlock.mode, $modeIcons)}"></i>
-				Live Now
-			</div>
-			<div class="active-mode-details">
-				<div class="active-mode-name">{activeModeTimeBlock.mode}</div>
-				<div class="active-mode-time">
-					{formatTimeLabel(activeModeTimeBlock.startTime)} — {formatTimeLabel(activeModeTimeBlock.endTime)}
-				</div>
-			</div>
-			<div class="active-mode-progress-track">
-				<div class="active-mode-progress-fill" style={`width: ${activeModeBlockProgress}%; transition: width 0.5s ease-out;`}></div>
-			</div>
-		</div>
-	{/if}
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
 		<div 
 			class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}" 
@@ -932,20 +934,39 @@
 			}}
 		>
 			<button 
-				class="today-subtle-mode-display" 
+				class="today-subtle-mode-display {activeModeTimeBlock ? 'active' : ''}" 
 				type="button"
+				style={activeModeTimeBlock ? `--mode-color: ${modeColorMap[activeModeTimeBlock.mode] || modeColorMap.Default};` : ''}
 				onmouseenter={() => modeDropdownOpen = true}
 				onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
 			>
-				<i class="fa-solid {getModeIcon($activeMode, $modeIcons)} me-2" style="font-size: 0.9em; opacity: 0.7;"></i>
-				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
+				<div class="today-subtle-mode-icon-shell">
+					<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}" style="font-size: 0.9em;"></i>
+					{#if activeModeTimeBlock}
+						<span class="today-subtle-mode-pulse"></span>
+					{/if}
+				</div>
+				<span class="today-subtle-mode-label">{$activeMode}</span>
+				{#if activeModeTimeBlock}
+					<span class="today-subtle-mode-time">
+						({formatTimeLabel(activeModeTimeBlock.startTime)} - {formatTimeLabel(activeModeTimeBlock.endTime)})
+					</span>
+					<div class="today-subtle-mode-progress">
+						<div class="today-subtle-mode-progress-fill" style={`width: ${activeModeBlockProgress}%;`}></div>
+					</div>
+				{/if}
+				<i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
 			</button>
-			<div class="today-subtle-modes-dropdown">
+			<div class="today-subtle-modes-dropdown {$settings.modeTimeBlocksEnabled ? 'locked' : ''}">
 				{#each $modes.filter(m => m !== $activeMode) as mode}
 					<button 
 						class="mode-pill" 
 						onclick={() => { 
-							activeMode.set(mode); 
+							if ($settings.modeTimeBlocksEnabled) {
+								toast.show('Mode selection is locked by Auto schedule', 'lock');
+								return;
+							}
+							activeMode.set(mode);
 							updateSettings({ modeTimeBlocksEnabled: false });
 							modeDropdownOpen = false;
 						}}
@@ -953,6 +974,9 @@
 					>
 						<i class="fa-solid {getModeIcon(mode, $modeIcons)}" style="font-size: 0.8rem; opacity: 0.7;"></i>
 						<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
+						{#if $settings.modeTimeBlocksEnabled}
+							<i class="fa-solid fa-lock ms-auto" style="font-size: 0.65rem; opacity: 0.3;"></i>
+						{/if}
 					</button>
 				{/each}
 			</div>
@@ -1130,7 +1154,14 @@
 								</div>
 							{/each}
 						{:else}
-							<div class="empty-state">No actions for today.</div>
+							<div class="empty-state">
+								{#if isGapHidden}
+									<i class="fa-solid fa-lock mb-2 d-block opacity-25" style="font-size: 1.5rem;"></i>
+									Actions are hidden during scheduled gaps.
+								{:else}
+									No actions for today.
+								{/if}
+							</div>
 						{/if}
 					</div>
 				</section>
@@ -1638,7 +1669,81 @@
 				{:else}
 					<div class="empty-state">Start typing to search actions in Today.</div>
 				{/if}
+
 			</div>
 		</div>
 	</div>
 {/if}
+
+<ToastContainer />
+
+<style>
+	/* Integrated Subtle Mode Selector Active States */
+	:global(.today-subtle-mode-display.active) {
+		background: rgba(45, 127, 249, 0.05) !important;
+		border-color: var(--mode-color, var(--blue)) !important;
+		color: #fff !important;
+		padding-left: 1.15rem;
+		overflow: hidden;
+	}
+
+	:global(.today-subtle-modes-dropdown.locked .mode-pill) {
+		opacity: 0.6;
+		cursor: not-allowed !important;
+		background: rgba(255, 255, 255, 0.01) !important;
+	}
+
+	:global(.today-subtle-modes-dropdown.locked .mode-pill:hover) {
+		transform: none !important;
+		border-color: rgba(129, 181, 255, 0.08) !important;
+	}
+	
+	:global(.today-subtle-mode-icon-shell) {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	:global(.today-subtle-mode-pulse) {
+		position: absolute;
+		top: -2px;
+		right: -4px;
+		width: 6px;
+		height: 6px;
+		background: var(--mode-color, var(--blue));
+		border-radius: 50%;
+		/* Removed neon glow */
+		animation: today-mode-pulse 2s infinite;
+	}
+	
+	@keyframes today-mode-pulse {
+		0% { transform: scale(1); opacity: 0.8; }
+		50% { transform: scale(1.4); opacity: 0.3; }
+		100% { transform: scale(1); opacity: 0.8; }
+	}
+	
+	:global(.today-subtle-mode-time) {
+		font-size: 0.72rem;
+		opacity: 0.45;
+		font-weight: 600;
+		margin-left: 0.4rem;
+		letter-spacing: 0.02em;
+	}
+	
+	:global(.today-subtle-mode-progress) {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 2px;
+		background: rgba(255, 255, 255, 0.03);
+	}
+	
+	:global(.today-subtle-mode-progress-fill) {
+		height: 100%;
+		background: var(--mode-color, var(--blue));
+		/* Removed neon glow shadow */
+		transition: width 0.5s ease-out;
+	}
+</style>

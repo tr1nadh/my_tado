@@ -56,7 +56,8 @@ function normalizeTimeString(value, fallback) {
 	const hours = Number.parseInt(match[1], 10);
 	const minutes = Number.parseInt(match[2], 10);
 
-	if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return fallback;
+	if (hours < 0 || hours > 24 || minutes < 0 || minutes > 59) return fallback;
+	if (hours === 24 && minutes > 0) return fallback;
 
 	return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
