@@ -11,6 +11,7 @@
 		stripDetectedDateText
 	} from '$lib/dateDetection';
 	import TaskRow from '$lib/components/TaskRow.svelte';
+	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import { activeMode, addTask, clearDoneForMode, getModeIcon, modeColorMap, modeIcons, modeMatches, modes, tasks, updateSettings } from '$lib/tasks';
 
 	let search = '';
@@ -25,8 +26,6 @@
 	let pausedObserver;
 	let panelDirection = 1;
 	let actionDismissedPhrases = [];
-	let modeDropdownOpen = false;
-	let modeDropdownTimer;
 
 	$: modeTasks = $tasks.filter((task) => modeMatches(task, $activeMode));
 	$: showModeBadge = $activeMode === 'All Modes';
@@ -216,42 +215,7 @@
 
 <div class="actions-panel-shell">
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-		<div 
-			class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}" 
-			style="margin-bottom: 0;"
-			onmouseenter={() => { 
-				if (modeDropdownTimer) clearTimeout(modeDropdownTimer); 
-			}}
-			onmouseleave={() => { 
-				modeDropdownTimer = setTimeout(() => modeDropdownOpen = false, 300); 
-			}}
-		>
-			<button 
-				class="today-subtle-mode-display" 
-				type="button"
-				onmouseenter={() => modeDropdownOpen = true}
-				onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
-			>
-				<i class="fa-solid {getModeIcon($activeMode, $modeIcons)} me-2" style="font-size: 0.9em; opacity: 0.7;"></i>
-				{$activeMode} <i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
-			</button>
-			<div class="today-subtle-modes-dropdown">
-				{#each $modes.filter(m => m !== $activeMode) as mode}
-					<button 
-						class="mode-pill" 
-						onclick={() => { 
-							activeMode.set(mode); 
-							updateSettings({ modeTimeBlocksEnabled: false });
-							modeDropdownOpen = false;
-						}}
-						style="padding: 0.4rem 0.85rem;"
-					>
-						<i class="fa-solid {getModeIcon(mode, $modeIcons)}" style="font-size: 0.8rem; opacity: 0.7;"></i>
-						<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
+		<SubtleHeader />
 
 		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 		<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">

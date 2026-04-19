@@ -14,6 +14,7 @@
 	import TaskRow from '$lib/components/TaskRow.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { toast } from '$lib/toast';
+	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import ZenProgress from '$lib/components/ZenProgress.svelte';
 	import {
 		activeMode,
@@ -67,12 +68,10 @@
 	let focusHoldStart = 0;
 	let focusHoldConsumed = false;
 	let todayRailOpen = false;
-	let modeDropdownOpen = false;
-	let modeDropdownTimer;
+	let timelineGrid;
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
 	let timelineUpdateInterval;
-	let timelineGrid;
 
 	// Pre-calculate timeline hours once to avoid expensive re-renders
 	const hourFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true });
@@ -825,7 +824,6 @@
 	function jumpToPaused() {
 		pausedSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
-
 	function rescheduleOverdueToToday() {
 		rescheduleTasksToToday(overdueActiveActions.map((task) => task.id));
 	}
@@ -903,11 +901,16 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
-		timelineUpdateInterval = window.setInterval(updateTimelineTime, 60000); // Live update now line every minute
 		
+		const timelineInterval = setInterval(() => {
+			now = new Date();
+			syncActiveModeToBlock();
+		}, 60000);
+
 		return () => {
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
+			clearInterval(timelineInterval);
 			if (modeBlockInterval) clearInterval(modeBlockInterval);
 			if (timelineUpdateInterval) clearInterval(timelineUpdateInterval);
 		};
@@ -923,64 +926,10 @@
 
 <div class="actions-panel-shell">
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-		<div 
-			class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}" 
-			style="margin-bottom: 0;"
-			onmouseenter={() => { 
-				if (modeDropdownTimer) clearTimeout(modeDropdownTimer); 
-			}}
-			onmouseleave={() => { 
-				modeDropdownTimer = setTimeout(() => modeDropdownOpen = false, 300); 
-			}}
-		>
-			<button 
-				class="today-subtle-mode-display {activeModeTimeBlock ? 'active' : ''}" 
-				type="button"
-				style={activeModeTimeBlock ? `--mode-color: ${modeColorMap[activeModeTimeBlock.mode] || modeColorMap.Default};` : ''}
-				onmouseenter={() => modeDropdownOpen = true}
-				onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
-			>
-				<div class="today-subtle-mode-icon-shell">
-					<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}" style="font-size: 0.9em;"></i>
-					{#if activeModeTimeBlock}
-						<span class="today-subtle-mode-pulse"></span>
-					{/if}
-				</div>
-				<span class="today-subtle-mode-label">{$activeMode}</span>
-				{#if activeModeTimeBlock}
-					<span class="today-subtle-mode-time">
-						({formatTimeLabel(activeModeTimeBlock.startTime)} - {formatTimeLabel(activeModeTimeBlock.endTime)})
-					</span>
-					<div class="today-subtle-mode-progress">
-						<div class="today-subtle-mode-progress-fill" style={`width: ${activeModeBlockProgress}%;`}></div>
-					</div>
-				{/if}
-				<i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
-			</button>
-			<div class="today-subtle-modes-dropdown {$settings.modeTimeBlocksEnabled ? 'locked' : ''}">
-				{#each $modes.filter(m => m !== $activeMode) as mode}
-					<button 
-						class="mode-pill" 
-						onclick={() => { 
-							if ($settings.modeTimeBlocksEnabled) {
-								toast.show('Mode selection is locked by Auto schedule', 'lock');
-								return;
-							}
-							activeMode.set(mode);
-							updateSettings({ modeTimeBlocksEnabled: false });
-							modeDropdownOpen = false;
-						}}
-						style="padding: 0.4rem 0.85rem;"
-					>
-						<i class="fa-solid {getModeIcon(mode, $modeIcons)}" style="font-size: 0.8rem; opacity: 0.7;"></i>
-						<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
-						{#if $settings.modeTimeBlocksEnabled}
-							<i class="fa-solid fa-lock ms-auto" style="font-size: 0.65rem; opacity: 0.3;"></i>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		</div>
+		<SubtleHeader 
+			activeModeTimeBlock={activeModeTimeBlock} 
+			activeModeTimeBlockProgress={activeModeBlockProgress} 
+		/>
 
 		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 			<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
@@ -1740,10 +1689,7 @@
 		background: rgba(255, 255, 255, 0.03);
 	}
 	
-	:global(.today-subtle-mode-progress-fill) {
-		height: 100%;
-		background: var(--mode-color, var(--blue));
-		/* Removed neon glow shadow */
-		transition: width 0.5s ease-out;
+	:global(.today-time-block.active:hover) {
+		box-shadow: 0 0 16px rgba(100, 100, 100, 0.15);
 	}
 </style>

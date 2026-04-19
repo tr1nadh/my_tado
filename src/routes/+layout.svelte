@@ -17,6 +17,7 @@
 		modes,
 		renameMode
 	} from '$lib/tasks';
+	import GlobalClock from '$lib/components/GlobalClock.svelte';
 
 	const { children } = $props();
 	let navCollapsed = $state(false);
@@ -271,7 +272,7 @@
 				<section class="top-mode-bar">
 					<div class="container-fluid py-3 px-3 px-lg-4">
 						<div class="mode-strip">
-							<div>
+							<div class="d-flex align-items-center justify-content-between w-100">
 								<div class="d-flex gap-2 mode-scroller">
 									{#each $modes as mode}
 										<div
@@ -320,6 +321,10 @@
 									<button class="mode-pill mode-pill-create flex-shrink-0" type="button" aria-label="Create mode" onclick={() => openModeEditor('create')}>
 										<i class="fa-solid fa-plus"></i>
 									</button>
+								</div>
+
+								<div class="d-none d-md-block">
+									<GlobalClock />
 								</div>
 							</div>
 						</div>
