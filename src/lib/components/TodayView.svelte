@@ -1,48 +1,36 @@
 <script>
-	import { browser } from '$app/environment';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
-	import {
-		buildHighlightedDateHtml,
-		detectActionDate,
-		formatDetectedDate,
-		getLineIndexAtCursor,
-		isCursorInsideMatch,
-		stripDetectedDateText
-	} from '$lib/dateDetection';
+	import { browser } from '$app/environment';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import ToastContainer from '$lib/components/ToastContainer.svelte';
-	import { toast } from '$lib/toast';
-	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import ZenProgress from '$lib/components/ZenProgress.svelte';
-	import UpcomingPanel from '$lib/components/UpcomingPanel.svelte';
-	import InboxPanel from '$lib/components/InboxPanel.svelte';
+	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import {
 		activeMode,
 		addTask,
 		clearDoneForMode,
-		getActiveModeTimeBlock,
 		getLocalDateKey,
-		getModeIcon,
 		getModeTimeBlocksForDate,
-		isOverdue,
-		isToday,
-		modeIcons,
+		getActiveModeTimeBlock,
 		modeMatches,
 		modes,
-		modeColorMap,
-		pauseTask,
-		rescheduleTasksToToday,
-		resumeTask,
+		modeIcons,
+		tasks,
 		settings,
 		settingsReady,
-		todayStarOptions,
-		toggleTask,
-		tasks,
 		updateSettings,
+		rescheduleTasksToToday,
+		isOverdue,
+		isToday,
+		modeColorMap,
+		todayStarOptions,
+		pauseTask,
+		resumeTask,
+		toggleTask,
 		USER_DAY_START_HOUR
 	} from '$lib/tasks';
+	import { buildHighlightedDateHtml, detectActionDate, getLineIndexAtCursor, isCursorInsideMatch, stripDetectedDateText } from '$lib/dateDetection';
 
 	let search = '';
 	let taskViewMode = 'active'; // 'active', 'paused', 'completed'
@@ -56,8 +44,6 @@
 	let pausedObserver;
 	let panelDirection = 1;
 	let actionDismissedPhrases = [];
-	const focusHoldDuration = 520;
-
 	let focusView = 'overview';
 	let focusIndex = 0;
 	let progressiveFocusIndex = 0;
@@ -65,7 +51,7 @@
 	let focusPauseReasonDraft = '';
 	let focusPressing = false;
 	let focusHoldProgress = 0;
-	let focusPressTimer;
+	let focusHoldTimer;
 	let focusHoldAnimationFrame;
 	let focusHoldStart = 0;
 	let focusHoldConsumed = false;
@@ -73,6 +59,10 @@
 	let upcomingRailOpen = false;
 	let inboxRailOpen = false;
 	let activeIslandTab = 'Today';
+	const islandTabs = ['Inbox', 'Today', 'Upcoming'];
+	$: if (!islandTabs.includes(activeIslandTab)) {
+		activeIslandTab = 'Today';
+	}
 	let timelineGrid;
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
@@ -216,16 +206,16 @@
 	function stepFocusHold() {
 		if (!focusPressing) return;
 
-		focusHoldProgress = Math.min((performance.now() - focusHoldStart) / focusHoldDuration, 1);
+		focusHoldProgress = Math.min((performance.now() - focusHoldStart) / 520, 1);
 		if (focusHoldProgress < 1) {
 			focusHoldAnimationFrame = requestAnimationFrame(stepFocusHold);
 		}
 	}
 
 	function clearFocusHold(clearConsumed = false) {
-		if (focusPressTimer) {
-			clearTimeout(focusPressTimer);
-			focusPressTimer = undefined;
+		if (focusHoldTimer) {
+			clearTimeout(focusHoldTimer);
+			focusHoldTimer = undefined;
 		}
 		if (focusHoldAnimationFrame) {
 			cancelAnimationFrame(focusHoldAnimationFrame);
@@ -246,11 +236,11 @@
 		focusPressing = true;
 		focusHoldStart = performance.now();
 		focusHoldAnimationFrame = requestAnimationFrame(stepFocusHold);
-		focusPressTimer = setTimeout(() => {
+		focusHoldTimer = setTimeout(() => {
 			focusHoldConsumed = true;
 			clearFocusHold();
 			enterFocusMode('single');
-		}, focusHoldDuration);
+		}, 520);
 	}
 
 	function cancelFocusHold() {
@@ -585,7 +575,7 @@
 	}, new Map());
 	$: todayModeSummaries = Array.from(
 		todayModeSummaryMap.values()
-	).sort((left, right) => right.count - left.count || left.mode.localeCompare(right.mode));
+	).sort((right, left) => right.count - left.count || right.mode.localeCompare(left.mode));
 	$: timeBlockModeOptions = $modes.filter((mode) => mode !== 'All Modes');
 	$: if ($settings.modeTimeBlocksEnabled && $settingsReady) {
 		syncActiveModeToBlock();
@@ -716,7 +706,7 @@
 		if (pausedSection) {
 			pausedObserver = new IntersectionObserver(
 				([entry]) => {
-					pausedVisible = entry.isIntersecting;
+					pausedVisible = entry.isIntersecting();
 				},
 				{ threshold: 0.2 }
 			);
@@ -822,6 +812,11 @@
 	function openPendingView() {
 		panelDirection = -1;
 		taskViewMode = 'active';
+	}
+
+	function openPausedView() {
+		panelDirection = 1;
+		taskViewMode = 'paused';
 	}
 
 	function showPrevFocus() {
@@ -979,8 +974,9 @@
 	});
 </script>
 
-<div class="actions-panel-shell has-dynamic-island">
-	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
+<div class="today-view">
+	<div class="actions-panel-shell has-dynamic-island">
+	<div class="actions-main-column" style="flex-grow: 1;">
 		<SubtleHeader 
 			activeModeTimeBlock={activeModeTimeBlock} 
 			activeModeTimeBlockProgress={activeModeBlockProgress} 
@@ -1160,8 +1156,26 @@
 					<div class="empty-state">Nothing left in Today. Switch back to overview if you want the full page again.</div>
 				{/if}
 
+				{#if pausedActions.length}
+					<section class="mt-4" bind:this={pausedSection}>
+						<div class="list-heading">Paused Actions</div>
+						<div class="task-list">
+							{#each pausedActions as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow
+										{task}
+										disableOptions={searchOpen}
+										showTodayStarControls
+										showModeBadge
+										hideDueDate={true}
+									/>
+								</div>
+							{/each}
+						</div>
+					</section>
+				{/if}
 			</div>
-		{:else}
+		{:else if taskViewMode === 'active'}
 			<div
 				in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
 				out:fly={{ x: panelDirection < 0 ? -56 : 56, duration: 120 }}
@@ -1220,6 +1234,26 @@
 					</div>
 				</section>
 
+				{#if pausedActions.length}
+					<section class="mt-4" bind:this={pausedSection}>
+						<div class="list-heading">Paused Actions</div>
+						<div class="task-list">
+							{#each pausedActions as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow
+										{task}
+										disableOptions={searchOpen}
+										showTodayStarControls
+										showTodayStarBadge
+										showModeBadge
+										hideDueDate={true}
+									/>
+								</div>
+							{/each}
+						</div>
+					</section>
+				{/if}
+
 				{#if backlogTasks && backlogTasks.length > 0}
 					<section class="mt-5 mb-5 backlog-section">
 						<button 
@@ -1229,6 +1263,8 @@
 							style="opacity: 0.6; cursor: pointer; transition: opacity 0.2s;"
 							onmouseover={(e) => e.currentTarget.style.opacity='1'}
 							onmouseout={(e) => e.currentTarget.style.opacity='0.6'}
+							onfocus={(e) => e.currentTarget.style.opacity='1'}
+							onblur={(e) => e.currentTarget.style.opacity='0.6'}
 						>
 							<i class="fa-solid fa-chevron-{backlogExpanded ? 'down' : 'right'}" style="font-size: 0.85em; width: 14px; text-align: center;"></i>
 							<span>Backlog & Upcoming</span>
@@ -1254,6 +1290,10 @@
 		{/if}
 	</section>
 	</div>
+	</div>
+
+	<aside class="right-dock" style="margin-top: 3.7rem;">
+	</aside>
 
 	<div class="today-time-rail-container {$settings.todayRailPinned ? 'pinned' : ''}">
 		<aside
@@ -1424,122 +1464,6 @@
 	</div>
 </div>
 
-{#if focusView === 'single'}
-	<div class="focus-overlay" role="dialog" aria-modal="true" aria-labelledby="focus-mode-title">
-		<div class="focus-overlay-backdrop"></div>
-		<div class="focus-overlay-content">
-			<div class="focus-overlay-exit">
-				<button class="focus-exit-button" type="button" aria-label="Exit focus mode" onclick={exitFocusMode}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-				<span class="focus-exit-label">ESC</span>
-			</div>
-
-			<div class="focus-overlay-head">
-				<div>
-					{#if activeFocusTask}
-						<div class="focus-mode-badge mode" id="focus-mode-title">
-							<i class="fa-solid {getModeIcon(activeFocusTask.mode, $modeIcons)} me-2"></i>
-							{activeFocusTask.mode}
-						</div>
-					{:else}
-						<div class="focus-mode-badge mode" id="focus-mode-title">Single Action</div>
-					{/if}
-				</div>
-			</div>
-
-			{#if activeFocusTask}
-				<div class="focus-overlay-body">
-
-					<div class="focus-overlay-stage">
-						<button class="focus-nav-button" type="button" aria-label="Previous action" onclick={showPrevFocus}>
-							<i class="fa-solid fa-chevron-left"></i>
-						</button>
-
-						<div class="focus-overlay-center">
-							<div class="focus-overlay-task">
-								{activeFocusTask.paused && activeFocusTask.pauseReason ? activeFocusTask.pauseReason : activeFocusTask.title}
-							</div>
-							{#if activeFocusTask.paused && activeFocusTask.pauseReason}
-								<div class="paused-reason-task soft-text">{activeFocusTask.title}</div>
-							{/if}
-
-
-
-							<div class="focus-overlay-actions">
-								<button class="btn btn-brand focus-complete-button" type="button" onclick={completeFocusTask}>
-									<i class="fa-solid fa-check me-2"></i>Complete
-								</button>
-								{#if activeFocusTask.paused}
-									<button class="toolbar-button focus-pause-button" type="button" onclick={resumeFocusTask}>
-										<i class="fa-solid fa-play me-2"></i>Resume
-									</button>
-									<button class="toolbar-button focus-pause-button" type="button" onclick={openFocusPauseReason}>
-										<i class="fa-solid fa-comment-dots me-2"></i>{activeFocusTask.pauseReason ? 'Edit reason' : 'Add reason'}
-									</button>
-								{:else}
-									<button class="toolbar-button focus-pause-button" type="button" onclick={pauseFocusTask}>
-										<i class="fa-solid fa-pause me-2"></i>Pause
-									</button>
-								{/if}
-							</div>
-						</div>
-
-						<button class="focus-nav-button" type="button" aria-label="Next action" onclick={showNextFocus}>
-							<i class="fa-solid fa-chevron-right"></i>
-						</button>
-					</div>
-				</div>
-			{:else}
-				<div class="empty-state">No actions in this category right now.</div>
-			{/if}
-		</div>
-	</div>
-{/if}
-
-{#if focusPauseModalOpen && activeFocusTask}
-	<div
-		class="pause-modal-backdrop focus-pause-layer"
-		role="button"
-		tabindex="0"
-		aria-label="Close focus pause modal"
-		onclick={() => (focusPauseModalOpen = false)}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && (focusPauseModalOpen = false)}
-	>
-		<div
-			class="pause-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="focus-pause-modal-title"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && (focusPauseModalOpen = false)}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Pause Action</div>
-					<h2 class="h6 mt-2 mb-1" id="focus-pause-modal-title">{activeFocusTask.title}</h2>
-					<p class="soft-text small mb-0">Optional: add the blocker or reason so the focused action can carry that context.</p>
-				</div>
-			</div>
-
-			<label class="form-label soft-text" for="focus-pause-reason">Why is this paused?</label>
-			<textarea
-				id="focus-pause-reason"
-				class="form-control"
-				rows="4"
-				bind:value={focusPauseReasonDraft}
-				placeholder="Example: Waiting for the client to confirm the final time before I can continue."
-			></textarea>
-
-			<div class="d-flex justify-content-end gap-2 mt-3">
-				<button class="toolbar-button" type="button" onclick={() => (focusPauseModalOpen = false)}>Cancel</button>
-				<button class="toolbar-button active" type="button" onclick={saveFocusPauseReason}>Save reason</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
 {#if actionModalOpen}
 	<div
 		class="pause-modal-backdrop"
@@ -1547,7 +1471,8 @@
 		tabindex="0"
 		aria-label="Close add action modal"
 		onclick={closeActionModal}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
+		onkeydown={(event) =>
+			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
 	>
 		<div
 			class="pause-modal action-capture-modal"
@@ -1563,14 +1488,19 @@
 					<div class="section-label">Quick Capture</div>
 					<div class="d-flex align-items-center gap-2 mt-2">
 						{#if $activeMode !== 'All Modes'}
-							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
+							<div
+								class="active-mode-badge"
+								style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}
+							>
 								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
 								{$activeMode}
 							</div>
 						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-today">Add Actions</h2>
+						<h2 class="h6 mb-0" id="add-action-title-today">Add to Today</h2>
 					</div>
-					<p class="soft-text small mb-0 mt-1">One line per action. The current mode will be used automatically.</p>
+					<p class="soft-text small mb-0 mt-1">
+						Lines without a date stay in Inbox. Natural-language dates are detected automatically.
+					</p>
 				</div>
 				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
 					<i class="fa-solid fa-xmark"></i>
@@ -1588,7 +1518,7 @@
 					class="form-control task-capture-input"
 					bind:value={actionDraft}
 					rows="10"
-					placeholder={`Finish stand-up notes\nCall bank for KYC update\nPick up medicines on the way home`}
+					placeholder={`Ideas without a date yet\nTomorrow call dentist\nFriday pick up parcel`}
 					oninput={handleActionDraftInput}
 					onkeydown={handleActionDraftKeydown}
 				></textarea>
@@ -1618,7 +1548,8 @@
 		tabindex="0"
 		aria-label="Close search"
 		onclick={closeSearch}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
+		onkeydown={(event) =>
+			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
 	>
 		<div
 			class="pause-modal search-modal"
@@ -1632,7 +1563,7 @@
 			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
 				<div>
 					<div class="section-label">Search</div>
-					<h2 class="h6 mt-2 mb-1" id="search-actions-title-today">Search Actions</h2>
+					<h2 class="h6 mt-2 mb-1" id="search-actions-title-today">Search Today</h2>
 					<p class="soft-text small mb-0">Search inside the current Today view.</p>
 				</div>
 				<button class="icon-button" type="button" aria-label="Close search" onclick={closeSearch}>
@@ -1654,12 +1585,7 @@
 						<div class="search-results-list task-list">
 							{#each modalSearchedTasks as task (task.id)}
 								<div class="search-result-row">
-									<TaskRow
-										{task}
-										showTodayStarControls
-										showTodayStarBadge
-										showModeBadge
-									/>
+									<TaskRow {task} showModeBadge />
 								</div>
 							{/each}
 						</div>
@@ -1667,54 +1593,59 @@
 						<div class="empty-state">No actions match this search.</div>
 					{/if}
 				{:else}
-					<div class="empty-state">Start typing to search actions in Today.</div>
+					<div class="empty-state">Start typing to search Today.</div>
 				{/if}
-
 			</div>
 		</div>
 	</div>
 {/if}
 
-<InboxPanel bind:open={inboxRailOpen} closePanel={() => { inboxRailOpen = false; activeIslandTab = 'Today'; }} />
-
-<UpcomingPanel bind:open={upcomingRailOpen} closePanel={() => { upcomingRailOpen = false; activeIslandTab = 'Today'; }} />
-
-<!-- Dynamic Island–style nav (bottom center) -->
-<nav class="dynamic-island-nav" aria-label="Primary">
-	<button
-		type="button"
-		class={`island-tab ${activeIslandTab === 'Inbox' ? 'active' : ''}`}
-		onclick={toggleInboxRail}
+{#if focusPauseModalOpen}
+	<div
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close focus pause modal"
+		onclick={() => focusPauseModalOpen = false}
+		onkeydown={(event) =>
+			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && (focusPauseModalOpen = false)}
 	>
-		<span class="island-label">Inbox</span>
-	</button>
+		<div
+			class="pause-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="focus-pause-title"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && (focusPauseModalOpen = false)}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Pause Reason</div>
+					<h2 class="h6 mt-2 mb-1" id="focus-pause-title">Why pause this action?</h2>
+					<p class="soft-text small mb-0">Optional note to help you remember why you paused.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close focus pause modal" onclick={() => focusPauseModalOpen = false}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
 
-	<button
-		type="button"
-		class={`island-tab ${activeIslandTab === 'Today' ? 'active' : ''}`}
-		onclick={() => {
-			if (upcomingRailOpen) upcomingRailOpen = false;
-			if (inboxRailOpen) inboxRailOpen = false;
-			activeIslandTab = 'Today';
-			window.scrollTo({ top: 0, behavior: 'smooth' });
-		}}
-	>
-		<span class="island-label">Today</span>
-	</button>
+			<textarea
+				class="form-control"
+				bind:value={focusPauseReasonDraft}
+				rows="3"
+				placeholder="e.g., Waiting for response, Need more info, etc."
+			></textarea>
 
-	<button
-		type="button"
-		class={`island-tab ${activeIslandTab === 'Upcoming' ? 'active' : ''}`}
-		onclick={toggleUpcomingRail}
-	>
-		<span class="island-label">Upcoming</span>
-	</button>
-</nav>
-
-<ToastContainer />
+			<div class="d-flex justify-content-end gap-2 mt-3">
+				<button class="toolbar-button" type="button" onclick={() => focusPauseModalOpen = false}>Cancel</button>
+				<button class="toolbar-button active" type="button" onclick={saveFocusPauseReason}>Save</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
-	/* Tab button styling */
 	:global(.tab-button) {
 		opacity: 0.6;
 		transition: all 0.2s ease;
@@ -1729,126 +1660,13 @@
 		border-bottom-color: var(--blue) !important;
 	}
 
-	/* Integrated Subtle Mode Selector Active States */
-	:global(.today-subtle-mode-display.active) {
-		background: rgba(45, 127, 249, 0.05) !important;
-		border-color: var(--mode-color, var(--blue)) !important;
-		color: #fff !important;
-		padding-left: 1.15rem;
-		overflow: hidden;
-	}
-
-	:global(.today-subtle-modes-dropdown.locked .mode-pill) {
-		opacity: 0.6;
-		cursor: not-allowed !important;
-		background: rgba(255, 255, 255, 0.01) !important;
-	}
-
-	:global(.today-subtle-modes-dropdown.locked .mode-pill:hover) {
-		transform: none !important;
-		border-color: rgba(129, 181, 255, 0.08) !important;
-	}
-	
-	:global(.today-subtle-mode-icon-shell) {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	
-	:global(.today-subtle-mode-pulse) {
-		position: absolute;
-		top: -2px;
-		right: -4px;
-		width: 6px;
-		height: 6px;
-		background: var(--mode-color, var(--blue));
-		border-radius: 50%;
-		/* Removed neon glow */
-		animation: today-mode-pulse 2s infinite;
-	}
-	
-	@keyframes today-mode-pulse {
-		0% { transform: scale(1); opacity: 0.8; }
-		50% { transform: scale(1.4); opacity: 0.3; }
-		100% { transform: scale(1); opacity: 0.8; }
-	}
-	
-	:global(.today-subtle-mode-time) {
-		font-size: 0.72rem;
-		opacity: 0.45;
-		font-weight: 600;
-		margin-left: 0.4rem;
-		letter-spacing: 0.02em;
-	}
-	
-	:global(.today-subtle-mode-progress) {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		height: 2px;
-		background: rgba(255, 255, 255, 0.03);
-	}
-	
-	:global(.today-time-block.active:hover) {
-		box-shadow: 0 0 16px rgba(100, 100, 100, 0.15);
-	}
-	/* Reserve space so scrollable content never sits under the fixed island */
-	.actions-panel-shell.has-dynamic-island {
-		padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
-	}
-
-	.dynamic-island-nav {
+	:global(.right-dock) {
 		position: fixed;
-		left: 50%;
-		bottom: max(1rem, calc(0.65rem + env(safe-area-inset-bottom, 0px)));
-		top: auto;
-		transform: translateX(-50%);
-		display: flex;
-		align-items: center;
-		padding: 0.35rem 0.5rem;
-		gap: 0.2rem;
-		background: var(--panel);
-		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
-		border-radius: 999px;
-		border: 1px solid var(--line);
-		box-shadow: var(--shadow);
-		z-index: 1025;
-	}
-
-	.island-tab {
-		position: relative;
-		border: 1px solid transparent;
-		background: transparent;
-		color: var(--muted);
-		padding: 0.55rem 1.15rem;
-		border-radius: 999px;
-		font-weight: 600;
-		font-size: 0.82rem;
-		cursor: pointer;
-		transition:
-			background 0.2s ease,
-			border-color 0.2s ease,
-			color 0.2s ease;
+		right: 1rem;
+		top: 50%;
+		transform: translateY(-50%);
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+		gap: 0;
 	}
-
-	.island-tab:hover:not(:disabled) {
-		color: var(--text);
-		background: rgba(45, 127, 249, 0.1);
-		border-color: rgba(129, 181, 255, 0.12);
-	}
-
-	.island-tab.active {
-		color: var(--text);
-		background: rgba(45, 127, 249, 0.2);
-		border-color: rgba(89, 213, 255, 0.22);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-	}
-
 </style>
