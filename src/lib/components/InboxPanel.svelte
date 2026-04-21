@@ -32,6 +32,7 @@
 	let actionDismissedPhrases = [];
 	export let open = false;
 	export let closePanel = () => {};
+	export let isMainView = false;
 
 	function isInboxTask(task) {
 		const d = task.dueDate;
@@ -200,24 +201,15 @@
 
 </script>
 
-<div class="inbox-offcanvas-root" class:open={open}>
-	<button
-		type="button"
-		class="inbox-offcanvas-scrim"
-		aria-label="Close inbox panel"
-		onclick={closePanel}
-	></button>
-	<div class="today-time-rail-container inbox-offcanvas-rail-slot">
-		<aside
-			class={`today-time-rail ${open ? 'open' : 'collapsed'} floating inbox-rail`}
-			aria-label="Inbox"
-		>
-			<div class="today-time-rail-content" style="padding: 1.5rem; overflow-y: auto;">
+<div class="inbox-main-content">
+	<div class="today-time-rail-content" style="padding: 1.5rem; overflow-y: auto;">
 				<div class="d-flex align-items-center justify-content-between mb-2">
 					<h2 class="h5 mb-0">Inbox</h2>
-					<button class="icon-button" type="button" aria-label="Close" title="Close" onclick={closePanel}>
-						<i class="fa-solid fa-xmark"></i>
-					</button>
+					{#if !isMainView}
+						<button class="icon-button" type="button" aria-label="Close" title="Close" onclick={closePanel}>
+							<i class="fa-solid fa-xmark"></i>
+						</button>
+					{/if}
 				</div>
 				<p class="soft-text small mb-4">Unscheduled actions. Add a date from the row menu when you are ready to schedule.</p>
 
@@ -315,11 +307,9 @@
 					</div>
 				{/if}
 			</div>
-		</aside>
-	</div>
-</div>
+		</div>
 
-{#if actionModalOpen}
+	{#if actionModalOpen}
 	<div
 		class="pause-modal-backdrop"
 		role="button"

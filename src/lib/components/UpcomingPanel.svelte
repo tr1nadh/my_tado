@@ -27,6 +27,7 @@
 	let actionDismissedPhrases = [];
 	export let open = false;
 	export let closePanel = () => {};
+	export let isMainView = false;
 
 	let selectedDate = '';
 	let selectedMonth = '';
@@ -305,19 +306,8 @@
 	onDestroy(() => pausedObserver?.disconnect());
 </script>
 
-<div class="upcoming-offcanvas-root" class:open={open}>
-	<button
-		type="button"
-		class="upcoming-offcanvas-scrim"
-		aria-label="Close upcoming panel"
-		onclick={closePanel}
-	></button>
-	<div class="today-time-rail-container upcoming-offcanvas-rail-slot">
-	<aside
-		class={`today-time-rail ${open ? 'open' : 'collapsed'} floating upcoming-rail`}
-		aria-label="Upcoming"
-	>
-		<div class="today-time-rail-content" style="padding: 1.5rem; overflow-y: auto;">
+<div class="upcoming-main-content">
+	<div class="today-time-rail-content" style="padding: 1.5rem; overflow-y: auto;">
 			<div class="d-flex align-items-center justify-content-between mb-4">
 				<h2 class="h5 mb-0">Upcoming</h2>
 				<button class="icon-button" type="button" aria-label="Close" title="Close" onclick={closePanel}>
@@ -440,138 +430,7 @@
 			</div>
 		{/if}
 	</div>
-	</aside>
-	</div>
 </div>
-
-{#if actionModalOpen}
-	<div
-		class="pause-modal-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close add action modal"
-		onclick={closeActionModal}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
-	>
-		<div
-			class="pause-modal action-capture-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="add-action-title-tomorrow"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeActionModal()}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Quick Capture</div>
-					<div class="d-flex align-items-center gap-2 mt-2">
-						{#if $activeMode !== 'All Modes'}
-							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
-								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
-								{$activeMode}
-							</div>
-						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-tomorrow">Add Actions</h2>
-					</div>
-					<p class="soft-text small mb-0 mt-1">One line per action. The current mode will be used automatically.</p>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
-
-			<div class="task-capture-shell">
-				<div class="task-capture-highlight" aria-hidden="true">
-					<div class="task-capture-highlight-copy">
-						{@html actionHighlightHtml}
-					</div>
-				</div>
-				<textarea
-					bind:this={actionInput}
-					class="form-control task-capture-input"
-					bind:value={actionDraft}
-					rows="10"
-					placeholder={`Finish stand-up notes\nCall bank for KYC update\nPick up medicines on the way home`}
-					oninput={handleActionDraftInput}
-					onkeydown={handleActionDraftKeydown}
-				></textarea>
-			</div>
-
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
-				{#if actionCount}
-					<div class="badge badge-soft rounded-pill px-3 py-2">{actionCount} ready to add</div>
-				{/if}
-			</div>
-
-			<div class="d-flex justify-content-end gap-2 mt-3">
-				<button class="toolbar-button" type="button" onclick={closeActionModal}>Cancel</button>
-				<button class="toolbar-button active" type="button" onclick={submitActions} disabled={!actionCount}>
-					Add {actionCount || ''} {actionCount === 1 ? 'Action' : 'Actions'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
-{#if searchOpen}
-	<div
-		class="pause-modal-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close search"
-		onclick={closeSearch}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
-	>
-		<div
-			class="pause-modal search-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="search-actions-title-upcoming"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeSearch()}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Search</div>
-					<h2 class="h6 mt-2 mb-1" id="search-actions-title-upcoming">Search Actions</h2>
-					<p class="soft-text small mb-0">Search inside the current Upcoming view.</p>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close search" onclick={closeSearch}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
-
-			<input
-				bind:this={searchInput}
-				class="form-control"
-				type="text"
-				bind:value={search}
-				placeholder="Search actions"
-			/>
-
-			<div class="search-results-shell mt-3">
-				{#if search.trim()}
-					{#if modalSearchedTasks.length}
-						<div class="search-results-list task-list">
-							{#each modalSearchedTasks as task (task.id)}
-								<div class="search-result-row">
-									<TaskRow {task} {showModeBadge} />
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="empty-state">No actions match this search.</div>
-					{/if}
-				{:else}
-					<div class="empty-state">Start typing to search actions in Upcoming.</div>
-				{/if}
-			</div>
-		</div>
-	</div>
-{/if}
 
 <style>
 	.upcoming-offcanvas-root {
