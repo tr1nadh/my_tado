@@ -945,8 +945,7 @@
 
 <div class="actions-panel-shell has-dynamic-island">
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-		{#if activeIslandTab === 'Today'}
-			<SubtleHeader
+		<SubtleHeader
 				activeModeTimeBlock={activeModeTimeBlock}
 				activeModeTimeBlockProgress={activeModeBlockProgress}
 			/>
@@ -1024,7 +1023,8 @@
 			</button>
 		</div>
 
-		{#if taskViewMode === 'completed'}
+		{#if activeIslandTab === 'Today'}
+			{#if taskViewMode === 'completed'}
 			{#if completedTasks.length}
 				<section
 					class="mb-4"
@@ -1219,6 +1219,10 @@
 			</div>
 		{/if}
 		</section>
+	{:else if activeIslandTab === 'Inbox'}
+		<InboxPanel open={true} isMainView={true} />
+	{:else if activeIslandTab === 'Upcoming'}
+		<UpcomingPanel open={true} isMainView={true} />
 	{/if}
 		<aside
 			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
