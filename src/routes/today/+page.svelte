@@ -945,12 +945,12 @@
 
 <div class="actions-panel-shell has-dynamic-island">
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-		{#if activeIslandTab === 'Today'}
-			<SubtleHeader
-				activeModeTimeBlock={activeModeTimeBlock}
-				activeModeTimeBlockProgress={activeModeBlockProgress}
-			/>
+		<SubtleHeader
+			activeModeTimeBlock={activeModeTimeBlock}
+			activeModeTimeBlockProgress={activeModeBlockProgress}
+		/>
 
+		{#if activeIslandTab === 'Today'}
 			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 			<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 			<div class="d-flex align-items-center gap-3">
@@ -1218,8 +1218,16 @@
 				{/if}
 			</div>
 		{/if}
-		</section>
-	{/if}
+			</section>
+		{:else if activeIslandTab === 'Inbox'}
+			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
+				<InboxPanel open={true} isMainView={true} />
+			</section>
+		{:else if activeIslandTab === 'Upcoming'}
+			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
+				<UpcomingPanel open={true} isMainView={true} />
+			</section>
+		{/if}
 		<aside
 			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
 			aria-label="Today time blocks"
@@ -1385,19 +1393,7 @@
 					</div>
 				</div>
 		</aside>
-		{#if activeIslandTab === 'Inbox'}
-			<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-				<div class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
-					<InboxPanel open={true} isMainView={true} />
-				</div>
-			</div>
-		{:else if activeIslandTab === 'Upcoming'}
-			<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-				<div class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
-					<UpcomingPanel open={true} isMainView={true} />
-				</div>
-			</div>
-		{/if}
+
 
 		{#if focusView === 'single'}
 			<div class="focus-overlay" role="dialog" aria-modal="true" aria-labelledby="focus-mode-title">
@@ -1766,7 +1762,7 @@
 	}
 	/* Reserve space so scrollable content never sits under the fixed island */
 	.actions-panel-shell.has-dynamic-island {
-		padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+		padding-bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
 	}
 
 	.dynamic-island-nav {

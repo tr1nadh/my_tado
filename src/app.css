@@ -31,6 +31,59 @@ body {
 body {
 	overflow-x: hidden;
 	font-size: 14px;
+	line-height: 1.6;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Responsive typography */
+@media (min-width: 768px) {
+	body {
+		font-size: 15px;
+	}
+}
+
+@media (min-width: 1200px) {
+	body {
+		font-size: 16px;
+	}
+}
+
+/* Responsive container */
+.responsive-container {
+	width: 100%;
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+	.responsive-container {
+		padding: 0 2rem;
+	}
+}
+
+@media (min-width: 1200px) {
+	.responsive-container {
+		padding: 0 3rem;
+	}
+}
+
+/* Responsive spacing */
+.responsive-padding {
+	padding: 1rem;
+}
+
+@media (min-width: 768px) {
+	.responsive-padding {
+		padding: 1.5rem;
+	}
+}
+
+@media (min-width: 1200px) {
+	.responsive-padding {
+		padding: 2rem;
+	}
 }
 
 * {
@@ -1098,6 +1151,120 @@ body {
 	.today-star-settings-item {
 		max-width: none;
 		border-radius: 1rem;
+	}
+
+	/* Enhanced mobile navigation */
+	.dynamic-island-nav {
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(90vw, 320px);
+		padding: 0.4rem;
+		gap: 0.3rem;
+		background: rgba(8, 19, 34, 0.95);
+		border: 1px solid var(--line);
+		border-radius: 1.2rem;
+		backdrop-filter: blur(12px);
+	}
+
+	.island-tab {
+		flex: 1;
+		padding: 0.6rem 0.4rem;
+		font-size: 0.75rem;
+		border-radius: 0.8rem;
+		min-height: 2.8rem;
+	}
+
+	.island-tab span {
+		font-size: 0.7rem;
+		font-weight: 600;
+	}
+
+	/* Mobile task layout improvements */
+	.task-row-shell {
+		padding: 0.6rem 0.4rem;
+	}
+
+	.task-title {
+		font-size: 0.92rem;
+		line-height: 1.5;
+	}
+
+	/* Mobile header optimizations */
+	.SubtleHeader {
+		padding: 0.8rem 0.6rem;
+	}
+
+	/* Mobile action buttons */
+	.toolbar-button, .icon-button {
+		min-width: 2.2rem;
+		min-height: 2.2rem;
+		padding: 0.4rem;
+	}
+
+	/* Mobile search improvements */
+	.search-modal {
+		width: 100vw;
+		height: 100vh;
+		border-radius: 0;
+		max-width: none;
+	}
+
+	/* Mobile panels */
+	.glass-panel {
+		margin: 0 0.4rem;
+		border-radius: 1rem;
+	}
+
+	/* Mobile time blocks */
+	.today-time-rail {
+		bottom: 6rem;
+		right: 0.5rem;
+		width: min(85vw, 280px);
+	}
+
+	/* Touch-friendly improvements */
+	.task-row-shell, .mode-pill, .island-tab, .toolbar-button {
+		min-height: 44px; /* iOS touch target minimum */
+	}
+
+	/* Mobile modal improvements */
+	.pause-modal {
+		border-radius: 1rem 1rem 0 0;
+		max-height: 90vh;
+		overflow-y: auto;
+	}
+
+	/* Mobile form improvements */
+	.form-control, .form-select {
+		font-size: 16px; /* Prevent zoom on iOS */
+	}
+
+	/* Mobile scroll improvements */
+	.task-list, .search-results-shell {
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+	}
+
+	.task-list::-webkit-scrollbar,
+	.search-results-shell::-webkit-scrollbar {
+		display: none;
+	}
+
+	/* Mobile focus states */
+	.task-row-shell:focus-within,
+	.mode-pill:focus,
+	.island-tab:focus {
+		outline: 2px solid var(--cyan);
+		outline-offset: 2px;
+	}
+
+	/* Mobile animations */
+	.task-row-shell {
+		transition: transform 0.2s ease, background-color 0.2s ease;
+	}
+
+	.task-row-shell:active {
+		transform: scale(0.98);
 	}
 }
 
@@ -2910,6 +3077,32 @@ body.task-drag-active * {
 	left: 1.5rem;
 }
 
+/* Tablet improvements */
+@media (min-width: 768px) and (max-width: 1199px) {
+	.app-content .container-fluid {
+		max-width: 100%;
+		padding: 0 2rem;
+	}
+
+	.dynamic-island-nav {
+		width: min(80vw, 400px);
+		bottom: 1.5rem;
+	}
+
+	.mode-pill {
+		padding: 0.5rem 0.7rem;
+		font-size: 0.85rem;
+	}
+
+	.task-row-shell {
+		padding: 0.8rem 0.6rem;
+	}
+
+	.glass-panel {
+		margin: 0 1rem;
+	}
+}
+
 @media (max-width: 1199px) {
 	.mobile-topbar {
 		display: flex;
@@ -3333,6 +3526,78 @@ body.task-drag-active * {
 	}
 }
 
+/* Desktop optimizations */
+@media (min-width: 1200px) {
+	.app-content .container-fluid {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 2rem;
+	}
+
+	.dynamic-island-nav {
+		width: 400px;
+		bottom: 2rem;
+	}
+
+	.glass-panel {
+		margin: 0;
+		border-radius: 1.4rem;
+	}
+
+	.task-row-shell {
+		padding: 0.8rem 1rem;
+	}
+
+	.task-title {
+		font-size: 1rem;
+	}
+
+	/* Desktop hover effects */
+	.task-row-shell:hover {
+		background: rgba(255, 255, 255, 0.02);
+		border-color: rgba(89, 213, 255, 0.15);
+	}
+
+	/* Desktop spacing */
+	.mode-pill {
+		padding: 0.6rem 1rem;
+		font-size: 0.95rem;
+	}
+
+	.toolbar-button {
+		padding: 0.5rem 1rem;
+		font-size: 0.95rem;
+	}
+}
+
+/* Large desktop optimizations */
+@media (min-width: 1440px) {
+	.app-content .container-fluid {
+		max-width: 1400px;
+		padding: 0 3rem;
+	}
+
+	.dynamic-island-nav {
+		width: 450px;
+	}
+
+	.glass-panel {
+		border-radius: 1.6rem;
+	}
+}
+
+/* Ultra-wide desktop optimizations */
+@media (min-width: 1920px) {
+	.app-content .container-fluid {
+		max-width: 1600px;
+	}
+
+	.task-row-shell {
+		max-width: 900px;
+		margin: 0 auto;
+	}
+}
+
 @media (max-width: 479px) {
 	.home-section-links {
 		grid-template-columns: 1fr;
@@ -3348,6 +3613,36 @@ body.task-drag-active * {
 	.home-feature-card p,
 	.home-route-card p {
 		line-height: 1.6;
+	}
+
+	/* Extra small mobile optimizations */
+	.dynamic-island-nav {
+		width: 95vw;
+		padding: 0.3rem;
+		gap: 0.2rem;
+	}
+
+	.island-tab {
+		padding: 0.5rem 0.3rem;
+		min-height: 2.6rem;
+		font-size: 0.7rem;
+	}
+
+	.island-tab span {
+		font-size: 0.65rem;
+	}
+
+	.task-row-shell {
+		padding: 0.5rem 0.3rem;
+	}
+
+	.task-title {
+		font-size: 0.88rem;
+	}
+
+	.glass-panel {
+		margin: 0 0.2rem;
+		border-radius: 0.8rem;
 	}
 }
 
