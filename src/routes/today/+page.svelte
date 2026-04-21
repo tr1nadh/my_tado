@@ -1218,14 +1218,6 @@
 				{/if}
 			</div>
 		{/if}
-	</section>
-	{:else if activeIslandTab === 'Inbox'}
-		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
-			<InboxPanel open={true} isMainView={true} />
-		</section>
-	{:else if activeIslandTab === 'Upcoming'}
-		<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
-			<UpcomingPanel open={true} isMainView={true} />
 		</section>
 	{/if}
 		<aside
