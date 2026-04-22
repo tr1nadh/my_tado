@@ -629,9 +629,8 @@
 		</div>
 	{/if}
 
-	{#if !editing}
-		<div
-			class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`}
+	<div
+		class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`}
 		role="presentation"
 		onmouseenter={closeStarMenu}
 	>
@@ -678,7 +677,6 @@
 		{/if}
 		<button class="icon-button" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
 	</div>
-	{/if}
 </div>
 
 {#if dueDateMenuOpen}

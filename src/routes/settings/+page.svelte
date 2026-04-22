@@ -15,6 +15,9 @@
 	} from '$lib/tasks';
 
 	const desktopUpdatesSupported = isDesktopUpdaterAvailable();
+	const webVersion = __WEB_VERSION__ || 'unknown';
+	const desktopDownloadUrl = 'https://github.com/tr1nadh/my_tado/releases/latest';
+	const desktopReleasesUrl = 'https://github.com/tr1nadh/my_tado/releases';
 
 	let currentTab = $state('stars'); // 'stars', 'modes', 'about'
 	let editingMode = $state(null);
@@ -79,12 +82,14 @@
 </script>
 
 <section class="glass-panel rounded-4 p-4 fade-up">
-	<div class="d-flex flex-column gap-2 mb-4">
-		<div class="section-label">Settings</div>
-		<h1 class="h4 mb-0">Customize Karya</h1>
-		<p class="soft-text mb-0">
-			Keep the daily workflow simple or turn on extra planning structure when you want it.
-		</p>
+	<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+		<div class="d-flex flex-column gap-2">
+			<div class="section-label">Settings</div>
+			<h1 class="h4 mb-0">Customize Karya</h1>
+			<p class="soft-text mb-0">
+				Keep the daily workflow simple or turn on extra planning structure when you want it.
+			</p>
+		</div>
 	</div>
 
 	<!-- Mini Navigation Tabs -->
@@ -280,19 +285,40 @@
 				{/if}
 			</div>
 		{:else if currentTab === 'about'}
-			<div class="settings-card fade-up">
-				<div class="settings-title mb-4">About Karya</div>
-				
-				<div class="settings-copy mb-5">
-					<p class="soft-text">Indian Chaos — a productivity tool designed for high-context daily life.</p>
-					<div class="soft-text small">Version 1.2.0 (Emerald Edition)</div>
+			<div class="settings-card fade-up about-karya-stack">
+				<div class="settings-title mb-3">About Karya</div>
+
+				<div class="settings-copy about-karya-card about-karya-intro mb-3">
+					<div class="settings-row-title mb-2">What is Karya?</div>
+					<p class="soft-text mb-2">
+						Karya is a mode-based action planner built for fast, high-context daily work. It keeps capture, planning,
+						and execution in one focused flow across Today, All, and Upcoming.
+					</p>
+					<p class="soft-text small mb-0">
+						Designed for people who switch contexts often and want lightweight structure without heavy project-management overhead.
+					</p>
+				</div>
+
+				<div class="settings-group about-karya-card">
+					<div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+						<div class="settings-copy about-karya-copy">
+							<div class="settings-row-title mb-2">Web version</div>
+							<p class="soft-text small mb-0">
+								Latest web build currently running in this app session.
+							</p>
+						</div>
+						<div class="d-flex flex-column align-items-end gap-1">
+							<div class="soft-text small">Version</div>
+							<div><code>v{webVersion}</code></div>
+						</div>
+					</div>
 				</div>
 
 				{#if desktopUpdatesSupported}
-					<div class="settings-group border-top border-light border-opacity-10 pt-4">
+					<div class="settings-group about-karya-card">
 						<div class="d-flex flex-wrap justify-content-between align-items-start gap-4">
-							<div class="settings-copy" style="max-width: 400px;">
-								<div class="settings-row-title mb-2">Desktop updates</div>
+							<div class="settings-copy about-karya-copy">
+								<div class="settings-row-title mb-2">Desktop app installed</div>
 								<p class="soft-text small mb-0">
 									Check for a newer Windows build and install it from inside Karya when one is available.
 								</p>
@@ -324,6 +350,35 @@
 								{#if $desktopUpdate.error}
 									<div class="text-danger small mt-2">{$desktopUpdate.error}</div>
 								{/if}
+							</div>
+						</div>
+					</div>
+				{:else}
+					<div class="settings-group about-karya-card">
+						<div class="d-flex flex-wrap justify-content-between align-items-start gap-4">
+							<div class="settings-copy about-karya-copy">
+								<div class="settings-row-title mb-2">Desktop app not detected</div>
+								<p class="soft-text small mb-0">
+									Install Karya Desktop for native updates and a dedicated app experience.
+								</p>
+							</div>
+							<div class="d-flex flex-column align-items-end gap-2">
+								<a
+									class="toolbar-button active text-decoration-none"
+									href={desktopDownloadUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Download for Desktop
+								</a>
+								<a
+									class="soft-text small text-decoration-none"
+									href={desktopReleasesUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									View GitHub releases
+								</a>
 							</div>
 						</div>
 					</div>

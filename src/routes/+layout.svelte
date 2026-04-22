@@ -241,6 +241,9 @@
 			<div class="container-fluid pt-4 pt-lg-4 pb-4 pb-lg-5 px-3 px-lg-4">
 				{@render children()}
 			</div>
+			<div class="app-love-note" aria-label="made in love with india">
+				made in <i class="fa-solid fa-heart app-love-heart" aria-hidden="true"></i> with india.
+			</div>
 		</div>
 	</div>
 </div>

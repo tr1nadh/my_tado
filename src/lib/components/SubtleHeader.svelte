@@ -1,4 +1,5 @@
 <script>
+	import { goto } from '$app/navigation';
 	import { activeMode, getModeIcon, modeColorMap, modeIcons, modes, updateSettings, settings } from '$lib/tasks';
 	import { toast } from '$lib/toast';
 	import GlobalClock from './GlobalClock.svelte';
@@ -82,13 +83,21 @@
 
 	<div class="subtle-header-clock-actions d-flex align-items-center gap-2 gap-md-3">
 		<GlobalClock />
-		<a
-			href="/settings"
-			class="icon-button subtle-header-settings"
-			aria-label="Settings"
-		>
-			<i class="fa-solid fa-gear" style="font-size: 1.1rem;"></i>
-		</a>
+		<details class="today-settings-menu">
+			<summary class="icon-button subtle-header-settings" aria-label="Settings menu">
+				<i class="fa-solid fa-gear" style="font-size: 1.1rem;"></i>
+			</summary>
+			<div class="today-settings-dropdown">
+				<a href="/settings" class="today-settings-item">
+					<i class="fa-solid fa-sliders"></i>
+					<span>Settings</span>
+				</a>
+				<button class="today-settings-item logout" type="button" onclick={() => goto('/')}>
+					<i class="fa-solid fa-right-from-bracket"></i>
+					<span>Logout</span>
+				</button>
+			</div>
+		</details>
 	</div>
 </div>
 
@@ -253,5 +262,65 @@
 
 	.subtle-header-settings:hover {
 		opacity: 1;
+	}
+
+	.today-settings-menu {
+		position: relative;
+	}
+
+	.today-settings-menu > summary {
+		list-style: none;
+	}
+
+	.today-settings-menu > summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.today-settings-dropdown {
+		position: absolute;
+		top: calc(100% + 0.35rem);
+		right: 0;
+		min-width: 10.5rem;
+		padding: 0.35rem;
+		border-radius: 10px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(11, 16, 24, 0.96);
+		backdrop-filter: blur(10px);
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+		z-index: 30;
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.today-settings-item {
+		width: 100%;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+		padding: 0.5rem 0.6rem;
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		color: #dbe6f4;
+		font-size: 0.83rem;
+		font-weight: 600;
+		text-align: left;
+		text-decoration: none;
+		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease;
+	}
+
+	.today-settings-item:hover {
+		background: rgba(255, 255, 255, 0.12);
+		color: #ffffff;
+	}
+
+	.today-settings-item.logout {
+		color: #ffb5bf;
+	}
+
+	.today-settings-item.logout:hover {
+		background: rgba(255, 107, 129, 0.16);
+		color: #ffc8cf;
 	}
 </style>

@@ -304,7 +304,7 @@
 	}
 
 	function toggleInboxRail() {
-		activeIslandTab = 'Inbox';
+		activeIslandTab = 'All';
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
@@ -1219,12 +1219,12 @@
 			</div>
 		{/if}
 			</section>
-		{:else if activeIslandTab === 'Inbox'}
+		{:else if activeIslandTab === 'All'}
 			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
 				<InboxPanel open={true} isMainView={true} />
 			</section>
 		{:else if activeIslandTab === 'Upcoming'}
-			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
+			<section class="glass-panel rounded-4 p-0 fade-up overflow-hidden" style="flex-grow: 1;">
 				<UpcomingPanel open={true} isMainView={true} />
 			</section>
 		{/if}
@@ -1648,31 +1648,37 @@
 	</div>
 </div>
 <!-- Dynamic Island–style nav (bottom center) -->
-<nav class="dynamic-island-nav" aria-label="Primary">
+<nav class="dynamic-island-nav mb-4" aria-label="Primary">
 	<button
-		type="button"
-		class={`island-tab ${activeIslandTab === 'Inbox' ? 'active' : ''}`}
+		type="button p-2"
+		class={`island-tab ${activeIslandTab === 'All' ? 'active' : ''}`}
+		aria-current={activeIslandTab === 'All' ? 'page' : undefined}
 		onclick={toggleInboxRail}
 	>
-		<span class="island-label">Inbox</span>
+		<i class="fa-solid fa-layer-group island-icon" aria-hidden="true"></i>
+		<span class="island-label">All</span>
 	</button>
 
 	<button
 		type="button"
 		class={`island-tab ${activeIslandTab === 'Today' ? 'active' : ''}`}
+		aria-current={activeIslandTab === 'Today' ? 'page' : undefined}
 		onclick={() => {
 			activeIslandTab = 'Today';
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}}
 	>
+		<i class="fa-solid fa-sun island-icon" aria-hidden="true"></i>
 		<span class="island-label">Today</span>
 	</button>
 
 	<button
 		type="button"
 		class={`island-tab ${activeIslandTab === 'Upcoming' ? 'active' : ''}`}
+		aria-current={activeIslandTab === 'Upcoming' ? 'page' : undefined}
 		onclick={toggleUpcomingRail}
 	>
+		<i class="fa-solid fa-calendar-days island-icon" aria-hidden="true"></i>
 		<span class="island-label">Upcoming</span>
 	</button>
 </nav>
@@ -1762,7 +1768,8 @@
 	}
 	/* Reserve space so scrollable content never sits under the fixed island */
 	.actions-panel-shell.has-dynamic-island {
-		padding-bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
+		--island-nav-reserve: 6.25rem;
+		padding-bottom: calc(var(--island-nav-reserve) + env(safe-area-inset-bottom, 0px));
 	}
 
 	.dynamic-island-nav {
@@ -1773,48 +1780,137 @@
 		transform: translateX(-50%);
 		display: flex;
 		align-items: center;
-		padding: 0.35rem 0.5rem;
-		gap: 0.2rem;
-		background: var(--panel);
-		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
+		width: min(32rem, calc(100vw - 1.1rem));
+		padding: 0.5rem 0.64rem;
+		gap: 0.36rem;
+		background:
+			linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.015)),
+			rgba(7, 14, 24, 0.86);
+		backdrop-filter: blur(16px) saturate(140%);
+		-webkit-backdrop-filter: blur(16px) saturate(140%);
 		border-radius: 999px;
-		border: 1px solid var(--line);
-		box-shadow: var(--shadow);
+		border: 1px solid rgba(133, 188, 255, 0.22);
+		box-shadow:
+			0 14px 30px rgba(0, 0, 0, 0.33),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
 		z-index: 1025;
+		overflow: hidden;
+		pointer-events: none;
 	}
 
 	.island-tab {
 		position: relative;
+		flex: 1 1 0;
+		min-width: 0;
 		border: 1px solid transparent;
 		background: transparent;
 		color: var(--muted);
-		padding: 0.55rem 1.15rem;
-		border-radius: 999px;
+		padding: 0.66rem 0.88rem;
+		border-radius: 0.9rem;
 		font-weight: 600;
-		font-size: 0.82rem;
+		font-size: 0.8rem;
 		cursor: pointer;
 		transition:
+			transform 0.2s ease,
 			background 0.2s ease,
 			border-color 0.2s ease,
-			color 0.2s ease;
+			color 0.2s ease,
+			box-shadow 0.2s ease;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
+		gap: 0.5rem;
 		align-items: center;
 		justify-content: center;
+		white-space: nowrap;
+		pointer-events: auto;
+	}
+
+	.island-tab::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+		opacity: 0;
+		transition: opacity 0.2s ease;
+		pointer-events: none;
+	}
+
+	.island-icon {
+		font-size: 0.74rem;
+		opacity: 0.86;
+	}
+
+	.island-label {
+		line-height: 1;
+	}
+
+	/* Desktop island navigation — compact sizing */
+	@media (min-width: 1200px) {
+		.actions-panel-shell.has-dynamic-island {
+			--island-nav-reserve: 5rem;
+		}
+
+		.dynamic-island-nav {
+			width: min(clamp(24rem, 36vw, 34rem), calc(100vw - 2rem));
+			max-width: calc(100vw - 2rem);
+			padding: 0.36rem 0.58rem;
+			gap: 0.3rem;
+			bottom: 0.7rem;
+		}
+
+		.island-tab {
+			padding: 0.58rem 0.8rem;
+			font-size: 0.79rem;
+		}
 	}
 
 	.island-tab:hover:not(:disabled) {
 		color: var(--text);
-		background: rgba(45, 127, 249, 0.1);
-		border-color: rgba(129, 181, 255, 0.12);
+		background: rgba(74, 143, 255, 0.13);
+		border-color: rgba(141, 193, 255, 0.25);
+		transform: translateY(-1px);
 	}
 
 	.island-tab.active {
 		color: var(--text);
-		background: rgba(45, 127, 249, 0.2);
-		border-color: rgba(89, 213, 255, 0.22);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+		background:
+			linear-gradient(145deg, rgba(68, 164, 255, 0.32), rgba(61, 104, 220, 0.22)),
+			rgba(40, 86, 176, 0.24);
+		border-color: rgba(117, 212, 255, 0.45);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.16),
+			0 6px 14px rgba(34, 95, 182, 0.33);
+	}
+
+	.island-tab:hover:not(:disabled)::before,
+	.island-tab.active::before {
+		opacity: 1;
+	}
+
+	.island-tab:focus-visible {
+		outline: 2px solid rgba(158, 210, 255, 0.9);
+		outline-offset: 2px;
+	}
+
+	@media (max-width: 460px) {
+		.dynamic-island-nav {
+			width: calc(100vw - 0.75rem);
+			padding: 0.34rem 0.36rem;
+			gap: 0.22rem;
+		}
+
+		.island-tab {
+			padding: 0.52rem 0.42rem;
+		}
+
+		.island-icon {
+			display: none;
+		}
+
+		.island-label {
+			font-size: 0.76rem;
+		}
 	}
 
 </style>

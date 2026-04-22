@@ -3077,6 +3077,24 @@ body.task-drag-active * {
 	left: 1.5rem;
 }
 
+.app-love-note {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.34rem;
+	text-align: center;
+	font-size: 0.74rem;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: rgba(220, 233, 255, 0.54);
+	padding: 0.3rem 1rem 0.8rem;
+}
+
+.app-love-heart {
+	color: #ff4d6d;
+	filter: drop-shadow(0 0 5px rgba(255, 77, 109, 0.42));
+}
+
 /* Tablet improvements */
 @media (min-width: 768px) and (max-width: 1199px) {
 	.app-content .container-fluid {
@@ -3119,6 +3137,10 @@ body.task-drag-active * {
 
 	.app-content.home-shell {
 		padding-bottom: 0;
+	}
+
+	.app-love-note {
+		padding-bottom: 5.8rem;
 	}
 
 	.top-mode-bar {
@@ -3844,4 +3866,37 @@ body.task-drag-active * {
 
 .x-small {
 	font-size: 0.75rem;
+}
+
+.about-karya-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.about-karya-card {
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	background: rgba(255, 255, 255, 0.02);
+	border-radius: 12px;
+	padding: 1rem 1.1rem;
+}
+
+.about-karya-intro {
+	padding: 1.1rem 1.2rem;
+}
+
+.about-karya-copy {
+	max-width: 430px;
+}
+
+@media (max-width: 768px) {
+	.about-karya-stack {
+		gap: 0.6rem;
+	}
+
+	.about-karya-card,
+	.about-karya-intro {
+		padding: 0.85rem 0.9rem;
+		border-radius: 10px;
+	}
 }

@@ -34,19 +34,14 @@
 	export let closePanel = () => {};
 	export let isMainView = false;
 
-	function isInboxTask(task) {
-		const d = task.dueDate;
-		return !d || String(d).trim() === '';
-	}
-
 	$: showModeBadge = $activeMode === 'All Modes';
-	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && isInboxTask(task));
+	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode));
 	$: modalSearchedTasks = scopedTasks.filter((task) => {
 		if (!search) return true;
 		return task.title.toLowerCase().includes(search.toLowerCase());
 	});
-	$: openInboxTasks = scopedTasks.filter((task) => !task.done);
-	$: activeOpenTasks = openInboxTasks.filter((t) => !t.paused);
+	$: openTasks = scopedTasks.filter((task) => !task.done);
+	$: activeOpenTasks = openTasks.filter((t) => !t.paused);
 	$: pausedActions = scopedTasks.filter((task) => !task.done && task.paused);
 	$: completedTasks = scopedTasks.filter((task) => task.done);
 	$: actionCount = actionDraft
@@ -201,113 +196,109 @@
 
 </script>
 
-<div class="inbox-main-content">
-	<div class="today-time-rail-content" style="padding: 1.5rem; overflow-y: auto;">
-				<div class="d-flex align-items-center justify-content-between mb-2">
-					<h2 class="h5 mb-0">Inbox</h2>
-					{#if !isMainView}
-						<button class="icon-button" type="button" aria-label="Close" title="Close" onclick={closePanel}>
-							<i class="fa-solid fa-xmark"></i>
-						</button>
-					{/if}
-				</div>
-				<p class="soft-text small mb-4">Unscheduled actions. Add a date from the row menu when you are ready to schedule.</p>
+<div class="all-panel">
+	<header class="all-header">
+		<div class="all-title-row">
+			<div>
+				<h2 class="all-title">All</h2>
+				<p class="all-subtitle">Everything in the selected mode. Use the top mode bar to switch context.</p>
+			</div>
+			{#if !isMainView}
+				<button class="all-close" type="button" aria-label="Close all panel" onclick={closePanel}>
+					<i class="fa-solid fa-xmark" aria-hidden="true"></i>
+				</button>
+			{/if}
+		</div>
 
-				<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-					<div class="d-flex align-items-center gap-3 flex-wrap">
-						<div
-							class="badge-soft rounded-pill px-3 py-2 font-monospace"
-							style="font-size: 0.72rem; letter-spacing: 0.02em; font-weight: 600; text-transform: uppercase; opacity: 0.9;"
-						>
-							{openInboxTasks.length}
-							{openInboxTasks.length === 1 ? 'action' : 'actions'}
-						</div>
-						{#if !showDone && completedTasks.length}
-							<button class="toolbar-button" type="button" onclick={openCompletedView}>
-								Completed ({completedTasks.length})
-							</button>
-						{/if}
-						{#if showDone}
-							<button class="toolbar-button" type="button" onclick={openPendingView}>Back to open</button>
-							<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
-						{/if}
-					</div>
-					<div class="d-flex align-items-center gap-2">
-						<button
-							class="icon-button search-launch-button"
-							type="button"
-							aria-label="Search actions"
-							onclick={openSearch}
-						>
-							<i class="fa-solid fa-magnifying-glass"></i>
-						</button>
-						<button
-							class="btn btn-brand"
-							type="button"
-							aria-label="Add Action"
-							onclick={openActionModal}
-							style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.7rem;"
-						>
-							<i class="fa-solid fa-plus"></i>
-						</button>
-					</div>
+		<div class="all-toolbar">
+			<div class="all-meta">
+				<div class="all-count-chip">
+					<span class="all-count-value">{openTasks.length}</span>
+					<span>{openTasks.length === 1 ? 'action' : 'actions'}</span>
 				</div>
-
+				{#if !showDone && completedTasks.length}
+					<button class="all-toggle" type="button" onclick={openCompletedView}>
+						Completed ({completedTasks.length})
+					</button>
+				{/if}
 				{#if showDone}
-					{#if completedTasks.length}
-						<section
-							class="mb-4"
-							in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
-							out:fly={{ x: panelDirection > 0 ? 56 : -56, duration: 120 }}
-						>
-							<div class="list-heading">Completed</div>
-							<div class="task-list">
-								{#each completedTasks as task (task.id)}
-									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-										<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-									</div>
-								{/each}
-							</div>
-						</section>
-					{:else}
-						<div class="empty-state">No completed inbox actions.</div>
-					{/if}
-				{:else}
-					<div
-						in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
-						out:fly={{ x: panelDirection < 0 ? -56 : 56, duration: 120 }}
-					>
-						{#if activeOpenTasks.length}
-							<section class="mb-4">
-								<div class="list-heading">Open</div>
-								<div class="task-list">
-									{#each activeOpenTasks as task (task.id)}
-										<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-											<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-										</div>
-									{/each}
-								</div>
-							</section>
-						{:else if !pausedActions.length}
-							<div class="empty-state">Inbox is clear for this mode.</div>
-						{/if}
-
-						{#if pausedActions.length}
-							<section class="mt-4">
-								<div class="list-heading">Paused</div>
-								<div class="task-list">
-									{#each pausedActions as task (task.id)}
-										<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-											<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-										</div>
-									{/each}
-								</div>
-							</section>
-						{/if}
-					</div>
+					<button class="all-toggle" type="button" onclick={openPendingView}>Back to open</button>
+					<button class="all-toggle danger" type="button" onclick={clearDoneForMode}>Clear done</button>
 				{/if}
 			</div>
+
+			<div class="all-actions">
+				<button
+					class="icon-button search-launch-button"
+					type="button"
+					aria-label="Search actions"
+					onclick={openSearch}
+				>
+					<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+				</button>
+				<button class="all-add" type="button" aria-label="Add action" onclick={openActionModal}>
+					<i class="fa-solid fa-plus" aria-hidden="true"></i>
+				</button>
+			</div>
 		</div>
+	</header>
+
+	<div class="all-content">
+		{#if showDone}
+			{#if completedTasks.length}
+				<section
+					class="all-section"
+					in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
+					out:fly={{ x: panelDirection > 0 ? 56 : -56, duration: 120 }}
+				>
+					<div class="all-section-heading">Completed</div>
+					<div class="task-list">
+						{#each completedTasks as task (task.id)}
+							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+								<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+							</div>
+						{/each}
+					</div>
+				</section>
+			{:else}
+				<div class="empty-state">No completed actions for this mode.</div>
+			{/if}
+		{:else}
+			<div
+				in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
+				out:fly={{ x: panelDirection < 0 ? -56 : 56, duration: 120 }}
+			>
+				{#if activeOpenTasks.length}
+					<section class="all-section">
+						<div class="all-section-heading">Open</div>
+						<div class="task-list">
+							{#each activeOpenTasks as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+								</div>
+							{/each}
+						</div>
+					</section>
+				{:else if !pausedActions.length}
+					<div class="empty-state">All is clear for this mode.</div>
+				{/if}
+
+				{#if pausedActions.length}
+					<section class="all-section all-paused">
+						<div class="all-section-heading">Paused</div>
+						<div class="task-list">
+							{#each pausedActions as task (task.id)}
+								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+								</div>
+							{/each}
+						</div>
+					</section>
+				{/if}
+			</div>
+		{/if}
+	</div>
+</div>
 
 	{#if actionModalOpen}
 	<div
@@ -341,10 +332,10 @@
 								{$activeMode}
 							</div>
 						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-inbox">Add to Inbox</h2>
+					<h2 class="h6 mb-0" id="add-action-title-inbox">Add to All</h2>
 					</div>
 					<p class="soft-text small mb-0 mt-1">
-						Lines without a date stay in Inbox. Natural-language dates are detected automatically.
+						Lines without a date stay in All. Natural-language dates are detected automatically.
 					</p>
 				</div>
 				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
@@ -408,8 +399,8 @@
 			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
 				<div>
 					<div class="section-label">Search</div>
-					<h2 class="h6 mt-2 mb-1" id="search-actions-title-inbox">Search Inbox</h2>
-					<p class="soft-text small mb-0">Search inside the current Inbox view.</p>
+					<h2 class="h6 mt-2 mb-1" id="search-actions-title-inbox">Search All</h2>
+					<p class="soft-text small mb-0">Search inside the current All view.</p>
 				</div>
 				<button class="icon-button" type="button" aria-label="Close search" onclick={closeSearch}>
 					<i class="fa-solid fa-xmark"></i>
@@ -438,7 +429,7 @@
 						<div class="empty-state">No actions match this search.</div>
 					{/if}
 				{:else}
-					<div class="empty-state">Start typing to search Inbox.</div>
+					<div class="empty-state">Start typing to search All.</div>
 				{/if}
 			</div>
 		</div>
@@ -446,46 +437,214 @@
 {/if}
 
 <style>
-	.inbox-offcanvas-root {
-		position: fixed;
-		inset: 0;
-		z-index: 1040;
-		pointer-events: none;
-	}
-
-	.inbox-offcanvas-root.open {
-		pointer-events: auto;
-	}
-
-	.inbox-offcanvas-scrim {
-		position: absolute;
-		inset: 0;
-		border: 0;
-		padding: 0;
-		margin: 0;
-		background: rgba(0, 0, 0, 0.45);
-		opacity: 0;
-		transition: opacity 0.22s ease;
-		cursor: default;
-	}
-
-	.inbox-offcanvas-root.open .inbox-offcanvas-scrim {
-		opacity: 1;
-	}
-
-	.inbox-offcanvas-rail-slot {
-		position: absolute;
-		top: 0;
-		right: 0;
-		bottom: 0;
-		width: 0;
+	.all-panel {
 		height: 100%;
-		max-height: 100dvh;
-		z-index: 1;
-		pointer-events: none;
+		display: flex;
+		flex-direction: column;
+		background:
+			radial-gradient(circle at top left, rgba(37, 112, 215, 0.18), transparent 42%),
+			linear-gradient(165deg, rgba(7, 17, 32, 0.96), rgba(6, 12, 24, 0.98));
+		border: 1px solid rgba(133, 188, 255, 0.16);
+		border-radius: 1.05rem;
+		overflow: hidden;
 	}
 
-	.inbox-offcanvas-root.open .inbox-offcanvas-rail-slot {
-		pointer-events: auto;
+	.all-header {
+		padding: 0.9rem 1rem 0.78rem;
+		border-bottom: 1px solid rgba(133, 188, 255, 0.14);
+		background: rgba(255, 255, 255, 0.02);
+		display: grid;
+		gap: 0.7rem;
+	}
+
+	.all-title-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.all-title {
+		margin: 0;
+		font-size: 1.16rem;
+		font-weight: 650;
+		color: var(--text);
+	}
+
+	.all-subtitle {
+		margin: 0.2rem 0 0;
+		color: var(--muted);
+		font-size: 0.8rem;
+		max-width: 36ch;
+	}
+
+	.all-close {
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.62rem;
+		border: 1px solid rgba(133, 188, 255, 0.2);
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--muted);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.all-close:hover {
+		border-color: rgba(255, 107, 129, 0.38);
+		background: rgba(255, 107, 129, 0.16);
+		color: #ff6b81;
+	}
+
+	.all-toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+		flex-wrap: wrap;
+	}
+
+	.all-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		flex-wrap: wrap;
+	}
+
+	.all-count-chip {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.34rem;
+		padding: 0.28rem 0.62rem;
+		border-radius: 999px;
+		border: 1px solid rgba(89, 213, 255, 0.3);
+		background: rgba(45, 127, 249, 0.16);
+		color: #d8efff;
+		font-size: 0.74rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
+
+	.all-count-value {
+		font-size: 0.92rem;
+		font-weight: 700;
+	}
+
+	.all-toggle {
+		border: 1px solid rgba(133, 188, 255, 0.2);
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--text);
+		border-radius: 0.62rem;
+		padding: 0.34rem 0.6rem;
+		font-size: 0.76rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.all-toggle:hover {
+		background: rgba(255, 255, 255, 0.12);
+	}
+
+	.all-toggle.danger {
+		border-color: rgba(255, 107, 129, 0.3);
+		color: #ff9aa9;
+	}
+
+	.all-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+
+	.all-add {
+		width: 2.1rem;
+		height: 2.1rem;
+		border: 1px solid rgba(117, 212, 255, 0.36);
+		border-radius: 0.64rem;
+		background: linear-gradient(145deg, rgba(77, 166, 255, 0.92), rgba(67, 106, 227, 0.95));
+		color: #fff;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.all-add:hover {
+		filter: brightness(1.06);
+		box-shadow: 0 8px 16px rgba(41, 107, 206, 0.3);
+	}
+
+	.all-content {
+		flex: 1;
+		overflow-y: auto;
+		padding: 0.82rem 0.96rem 0.96rem;
+	}
+
+	.all-section {
+		margin-bottom: 0.72rem;
+		padding: 0.66rem;
+		border-radius: 0.8rem;
+		border: 1px solid rgba(133, 188, 255, 0.14);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.all-paused {
+		border-color: rgba(255, 184, 77, 0.26);
+		background: rgba(255, 184, 77, 0.08);
+	}
+
+	.all-section-heading {
+		font-size: 0.76rem;
+		font-weight: 650;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--cyan);
+		margin-bottom: 0.5rem;
+	}
+
+	@media (max-width: 640px) {
+		.all-panel {
+			border-radius: 0.82rem;
+		}
+
+		.all-header {
+			padding: 0.75rem 0.78rem 0.7rem;
+			gap: 0.6rem;
+		}
+
+		.all-title {
+			font-size: 1.02rem;
+		}
+
+		.all-subtitle {
+			font-size: 0.75rem;
+			max-width: none;
+		}
+
+		.all-toolbar {
+			align-items: stretch;
+		}
+
+		.all-meta {
+			width: 100%;
+		}
+
+		.all-actions {
+			width: 100%;
+			justify-content: flex-end;
+		}
+
+		.all-content {
+			padding: 0.66rem 0.72rem 0.74rem;
+		}
+
+		.all-section {
+			padding: 0.54rem;
+		}
 	}
 </style>
