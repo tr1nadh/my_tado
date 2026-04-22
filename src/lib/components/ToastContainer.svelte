@@ -62,13 +62,12 @@
         align-items: center;
         gap: 1rem;
         padding: 0.85rem 1.15rem;
-        background: rgba(10, 25, 45, 0.85);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--panel-solid);
+        border: 1px solid var(--line);
         border-left: 4px solid var(--toast-color);
         border-radius: 1rem;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        color: #fff;
+        color: var(--text);
     }
 
     .toast-icon {
@@ -89,7 +88,7 @@
     .toast-close {
         background: transparent;
         border: 0;
-        color: rgba(255, 255, 255, 0.3);
+        color: rgba(148, 163, 184, 0.8);
         padding: 0.4rem;
         cursor: pointer;
         transition: color 180ms ease;

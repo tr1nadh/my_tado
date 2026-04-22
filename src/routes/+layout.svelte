@@ -22,8 +22,8 @@
 		settingsReady
 	} from '$lib/tasks';
 	import { toast } from '$lib/toast';
-	import GlobalClock from '$lib/components/GlobalClock.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import IslandNav from '$lib/components/IslandNav.svelte';
 
 	const { children } = $props();
 	let modeEditorOpen = $state(false);
@@ -88,10 +88,20 @@
 		// Catch direct loads to non-Today routes and block-start transitions while user is elsewhere.
 		enforceTodayOnly();
 		const lockInterval = setInterval(enforceTodayOnly, 15000);
+		window.addEventListener('focus', enforceTodayOnly);
+		window.addEventListener('pageshow', enforceTodayOnly);
+		const handleVisibilityChange = () => {
+			if (document.hidden) return;
+			enforceTodayOnly();
+		};
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 
 		return () => {
 			unsubscribeBefore?.();
 			clearInterval(lockInterval);
+			window.removeEventListener('focus', enforceTodayOnly);
+			window.removeEventListener('pageshow', enforceTodayOnly);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
 
@@ -227,7 +237,7 @@
 
 
 
-		<div class={`app-content ${isHomePage ? 'home-shell' : ''}`}>
+		<div class={`app-content ${isHomePage ? 'home-shell' : 'has-island-nav'}`}>
 			{#if page.url.pathname !== '/today' && page.url.pathname !== '/' && page.url.pathname !== '/upcoming' && page.url.pathname !== '/inbox' && page.url.pathname !== '/settings'}
 				<section class="top-mode-bar">
 					<div class="container-fluid py-3 px-3 px-lg-4">
@@ -283,9 +293,7 @@
 									</button>
 								</div>
 
-								<div class="d-none d-md-block">
-									<GlobalClock />
-								</div>
+								<!-- Clock is shown in Today header when Auto schedule is enabled. -->
 							</div>
 						</div>
 					</div>
@@ -298,6 +306,9 @@
 			<div class="app-love-note" aria-label="made in love with india">
 				made in <i class="fa-solid fa-heart app-love-heart" aria-hidden="true"></i> with india.
 			</div>
+			{#if !isHomePage}
+				<IslandNav />
+			{/if}
 		</div>
 	</div>
 </div>

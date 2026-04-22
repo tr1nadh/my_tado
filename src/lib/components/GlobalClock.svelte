@@ -37,11 +37,10 @@
 		align-items: center;
 		gap: 0.6rem;
 		padding: 0.45rem 0.9rem;
-		background: rgba(10, 25, 45, 0.4);
-		backdrop-filter: blur(12px);
-		border: 1px solid rgba(255, 255, 255, 0.04);
+		background: var(--panel-solid);
+		border: 1px solid var(--line);
 		border-radius: 1rem;
-		color: #fff;
+		color: var(--text);
 		font-family: 'Inter', system-ui, sans-serif;
 		pointer-events: auto;
 		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -49,9 +48,9 @@
 	}
 
 	.today-top-clock:hover {
-		background: rgba(15, 35, 60, 0.6);
+		background: var(--panel);
 		transform: translateY(-1px);
-		border-color: rgba(255, 255, 255, 0.08);
+		border-color: var(--line-strong);
 		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
 	}
 

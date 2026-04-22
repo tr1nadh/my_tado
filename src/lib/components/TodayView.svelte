@@ -67,12 +67,16 @@
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
 	let timelineUpdateInterval;
+	let railCompact = browser ? window.matchMedia('(max-width: 1199px)').matches : false;
+
+	// Pinned rail works great on desktop, but on smaller screens it should behave like a normal off-canvas.
+	$: effectiveRailPinned = $settings.todayRailPinned && !railCompact;
 
 	// Treat the floating time-block rail as an off-canvas drawer (locks background scroll while open).
 	$: if (browser) {
 		document.body.classList.toggle(
 			'karya-offcanvas-open',
-			todayRailOpen && !$settings.todayRailPinned
+			todayRailOpen && !effectiveRailPinned
 		);
 	}
 
@@ -296,7 +300,7 @@
 	}
 
 	function closeTodayRail() {
-		if ($settings.todayRailPinned) return;
+		if (effectiveRailPinned) return;
 		todayRailOpen = false;
 	}
 
@@ -313,7 +317,7 @@
 			upcomingRailOpen = false;
 			activeIslandTab = 'Today';
 		} else {
-			if (todayRailOpen && !$settings.todayRailPinned) todayRailOpen = false;
+			if (todayRailOpen && !effectiveRailPinned) todayRailOpen = false;
 			inboxRailOpen = false;
 			upcomingRailOpen = true;
 			activeIslandTab = 'Upcoming';
@@ -325,7 +329,7 @@
 			inboxRailOpen = false;
 			activeIslandTab = 'Today';
 		} else {
-			if (todayRailOpen && !$settings.todayRailPinned) todayRailOpen = false;
+			if (todayRailOpen && !effectiveRailPinned) todayRailOpen = false;
 			upcomingRailOpen = false;
 			inboxRailOpen = true;
 			activeIslandTab = 'Inbox';
@@ -885,6 +889,17 @@
 	}
 
 	onMount(() => {
+		let mql;
+		let updateMql;
+		if (browser) {
+			mql = window.matchMedia('(max-width: 1199px)');
+			updateMql = () => {
+				railCompact = mql.matches;
+			};
+			updateMql();
+			mql.addEventListener('change', updateMql);
+		}
+
 		syncActiveModeToBlock();
 
 		// Seed a default Sleep block for today if none exists yet
@@ -923,6 +938,11 @@
 			}
 		}
 
+		function handleVisibilityChange() {
+			if (document.hidden) return;
+			updateTimelineTime();
+		}
+
 		function handleKeydown(event) {
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -940,7 +960,7 @@
 				openSearch();
 			}
 			if (event.key === 'Escape') {
-				if (todayRailOpen && !$settings.todayRailPinned) {
+				if (todayRailOpen && !effectiveRailPinned) {
 					event.preventDefault();
 					todayRailOpen = false;
 					return;
@@ -972,12 +992,19 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
+		window.addEventListener('focus', updateTimelineTime);
+		window.addEventListener('pageshow', updateTimelineTime);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		updateTimelineTime();
 		timelineUpdateInterval = setInterval(updateTimelineTime, 60000);
 
 		return () => {
+			if (mql && updateMql) mql.removeEventListener('change', updateMql);
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
+			window.removeEventListener('focus', updateTimelineTime);
+			window.removeEventListener('pageshow', updateTimelineTime);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			if (modeBlockInterval) clearInterval(modeBlockInterval);
 			if (timelineUpdateInterval) clearInterval(timelineUpdateInterval);
 		};
@@ -1313,17 +1340,17 @@
 	<aside class="right-dock" style="margin-top: 3.7rem;">
 	</aside>
 
-	{#if todayRailOpen && !$settings.todayRailPinned}
+	{#if todayRailOpen && !effectiveRailPinned}
 		<div class="today-time-rail-backdrop" aria-hidden="true" onclick={closeTodayRail}></div>
 	{/if}
 
-	<div class="today-time-rail-container {$settings.todayRailPinned ? 'pinned' : ''}">
+	<div class="today-time-rail-container {effectiveRailPinned ? 'pinned' : ''}">
 		<aside
-			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
+			class={`today-time-rail ${todayRailOpen || effectiveRailPinned ? 'open' : 'collapsed'} ${effectiveRailPinned ? 'pinned' : 'floating'}`}
 			aria-label="Today time blocks"
 			role="dialog"
-			aria-modal={todayRailOpen && !$settings.todayRailPinned}
-			aria-hidden={!(todayRailOpen || $settings.todayRailPinned)}
+			aria-modal={todayRailOpen && !effectiveRailPinned}
+			aria-hidden={!(todayRailOpen || effectiveRailPinned)}
 			tabindex="-1"
 		>
 			<div class="today-time-rail-content">

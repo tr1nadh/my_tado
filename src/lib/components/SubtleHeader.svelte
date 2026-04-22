@@ -96,10 +96,15 @@
 	</div>
 
 	<div class="subtle-header-clock-actions d-flex align-items-center gap-2 gap-md-3">
-		<GlobalClock />
+		{#if $settings.modeTimeBlocksEnabled}
+			<div class="d-none d-md-block">
+				<GlobalClock />
+			</div>
+		{/if}
 		<details class="today-settings-menu">
-			<summary class="icon-button subtle-header-settings" aria-label="Settings menu">
-				<i class="fa-solid fa-gear" style="font-size: 1.1rem;"></i>
+			<summary class="icon-button subtle-header-settings subtle-header-profile" aria-label="Profile menu">
+				<i class="fa-solid fa-circle-user" aria-hidden="true"></i>
+				<span class="subtle-header-profile-label">Guest</span>
 			</summary>
 			<div class="today-settings-dropdown">
 				<a href="/settings" class="today-settings-item">
@@ -143,11 +148,10 @@
 		align-items: center;
 		gap: 0.6rem;
 		padding: 0.5rem 0.9rem;
-		background: rgba(10, 25, 45, 0.35);
-		backdrop-filter: blur(8px);
-		border: 1px solid rgba(255, 255, 255, 0.05);
+		background: var(--panel);
+		border: 1px solid var(--line);
 		border-radius: 0.85rem;
-		color: #fff;
+		color: var(--text);
 		font-size: 0.9rem;
 		font-weight: 500;
 		transition: all 0.2s ease;
@@ -156,12 +160,12 @@
 	}
 
 	.today-subtle-mode-display:hover {
-		background: rgba(10, 25, 45, 0.5);
-		border-color: rgba(255, 255, 255, 0.1);
+		background: var(--panel-strong);
+		border-color: var(--line-strong);
 	}
 
 	.today-subtle-mode-display.active {
-		border-color: rgba(255, 255, 255, 0.15);
+		border-color: var(--line-strong);
 	}
 
 	/* Keep trigger visible even while dropdown is open. */
@@ -191,7 +195,7 @@
 		height: 6px;
 		background: var(--mode-color);
 		border-radius: 50%;
-		box-shadow: 0 0 8px var(--mode-color);
+		box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
 		animation: mode-pulse 2s infinite;
 	}
 
@@ -214,7 +218,7 @@
 		left: 0;
 		width: 100%;
 		height: 2px;
-		background: rgba(255, 255, 255, 0.05);
+		background: rgba(255, 255, 255, 0.04);
 	}
 
 	.today-subtle-mode-progress-fill {
@@ -228,15 +232,14 @@
 		top: calc(100% + 0.1rem);
 		left: 0;
 		min-width: 180px;
-		background: rgba(15, 30, 55, 0.95);
-		backdrop-filter: blur(16px);
-		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: var(--panel-solid);
+		border: 1px solid var(--line-strong);
 		border-radius: 1rem;
 		padding: 0.5rem;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+		box-shadow: var(--shadow-soft);
 		opacity: 0;
 		visibility: hidden;
 		transform: translateY(-8px);
@@ -261,7 +264,7 @@
 		gap: 0.75rem;
 		padding: 0.6rem 0.85rem;
 		border-radius: 0.65rem;
-		color: rgba(255, 255, 255, 0.7);
+		color: var(--muted);
 		transition: all 0.2s ease;
 		background: transparent;
 		border: none;
@@ -269,8 +272,8 @@
 	}
 
 	.today-subtle-modes-dropdown:not(.locked) .mode-pill:hover {
-		background: rgba(255, 255, 255, 0.06);
-		color: #fff;
+		background: rgba(79, 70, 229, 0.16);
+		color: var(--text);
 	}
 
 	.mode-pill-label {
@@ -284,14 +287,31 @@
 	}
 
 	.subtle-header-settings {
-		width: 2rem;
-		height: 2rem;
+		width: auto;
+		height: auto;
+		padding: 0.35rem 0.6rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.45rem;
+		border-radius: 999px;
 		opacity: 0.65;
 		transition: opacity 0.2s ease;
 	}
 
 	.subtle-header-settings:hover {
 		opacity: 1;
+	}
+
+	.subtle-header-profile i {
+		font-size: 1.15rem;
+	}
+
+	.subtle-header-profile-label {
+		font-size: 0.82rem;
+		font-weight: 750;
+		color: rgba(234, 242, 255, 0.86);
+		letter-spacing: 0.01em;
 	}
 
 	.today-settings-menu {
@@ -313,10 +333,9 @@
 		min-width: 10.5rem;
 		padding: 0.35rem;
 		border-radius: 10px;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(11, 16, 24, 0.96);
-		backdrop-filter: blur(10px);
-		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+		border: 1px solid var(--line-strong);
+		background: var(--panel-solid);
+		box-shadow: var(--shadow-soft);
 		z-index: 30;
 		display: grid;
 		gap: 0.2rem;
@@ -331,7 +350,7 @@
 		border: none;
 		border-radius: 8px;
 		background: transparent;
-		color: #dbe6f4;
+		color: rgba(234, 242, 255, 0.92);
 		font-size: 0.83rem;
 		font-weight: 600;
 		text-align: left;
@@ -341,16 +360,16 @@
 	}
 
 	.today-settings-item:hover {
-		background: rgba(255, 255, 255, 0.12);
-		color: #ffffff;
+		background: rgba(79, 70, 229, 0.16);
+		color: var(--text);
 	}
 
 	.today-settings-item.logout {
-		color: #ffb5bf;
+		color: rgba(255, 77, 109, 0.9);
 	}
 
 	.today-settings-item.logout:hover {
-		background: rgba(255, 107, 129, 0.16);
-		color: #ffc8cf;
+		background: rgba(255, 77, 109, 0.14);
+		color: rgba(255, 190, 200, 0.96);
 	}
 </style>

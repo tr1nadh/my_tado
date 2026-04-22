@@ -2,6 +2,7 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
+	import { browser } from '$app/environment';
 	import {
 		buildHighlightedDateHtml,
 		detectActionDate,
@@ -28,25 +29,28 @@
 	export let closePanel = () => {};
 	export let isMainView = false;
 
-	let rangeFilter = 'next7';
-	let quickFilter = 'all';
+	let dateScope = 'next7';
 	let customStart = '';
 	let customEnd = '';
 	let customRangeModalOpen = false;
+	let scopeMenuOpen = false;
+	let filterSheetOpen = false;
+	let isMobile = false;
+	let collapsedGroups = new Set();
+	let collapsedPaused = false;
 
-	const rangeOptions = [
-		{ value: 'next7', label: 'Next 7 days' },
-		{ value: 'next14', label: 'Next 14 days' },
-		{ value: 'thisMonth', label: 'This month' },
-		{ value: 'custom', label: 'Custom' }
-	];
+	let sheetScope = 'next7';
+	let sheetCustomStart = '';
+	let sheetCustomEnd = '';
 
-	const quickFilterOptions = [
-		{ value: 'all', label: 'All' },
+	const dateScopeOptions = [
+		{ value: 'overdue', label: 'Overdue' },
 		{ value: 'today', label: 'Today' },
 		{ value: 'tomorrow', label: 'Tomorrow' },
-		{ value: 'weekend', label: 'This weekend' },
-		{ value: 'overdue', label: 'Overdue' },
+		{ value: 'thisWeek', label: 'This week' },
+		{ value: 'next7', label: 'Next 7 days' },
+		{ value: 'thisMonth', label: 'This month' },
+		{ value: 'custom', label: 'Custom range' },
 		{ value: 'noDate', label: 'No date' }
 	];
 
@@ -81,13 +85,6 @@
 		return formatDateValue(getTodayDate());
 	}
 
-	function isWeekendDateKey(value) {
-		const parsed = parseDateValue(value);
-		if (!parsed) return false;
-		const day = parsed.getDay();
-		return day === 0 || day === 6;
-	}
-
 	function getRelativeDateLabel(value) {
 		if (!value) return '';
 		const todayKey = getTodayKey();
@@ -108,15 +105,19 @@
 		});
 	}
 
+	function getEndOfWeek(dateValue) {
+		const end = new Date(dateValue);
+		const day = end.getDay(); // 0 = Sunday
+		const diff = (7 - day) % 7;
+		end.setDate(end.getDate() + diff);
+		end.setHours(0, 0, 0, 0);
+		return end;
+	}
+
 	function ensureCustomRangeDefaults() {
 		const today = getTodayDate();
 		if (!customStart) customStart = formatDateValue(today);
 		if (!customEnd) customEnd = formatDateValue(addDays(today, 6));
-	}
-
-	function openCustomRangePicker() {
-		ensureCustomRangeDefaults();
-		customRangeModalOpen = true;
 	}
 
 	function applyCustomRange() {
@@ -126,62 +127,60 @@
 		if (start && end && start > end) {
 			[customStart, customEnd] = [customEnd, customStart];
 		}
-		rangeFilter = 'custom';
 		customRangeModalOpen = false;
-	}
-
-	function selectRange(value) {
-		if (value === 'custom') {
-			openCustomRangePicker();
-			return;
-		}
-		rangeFilter = value;
+		dateScope = 'custom';
 	}
 
 	function resetUpcomingFilters() {
-		rangeFilter = 'next7';
-		quickFilter = 'all';
+		dateScope = 'next7';
 		search = '';
 		showDone = false;
+		scopeMenuOpen = false;
+		filterSheetOpen = false;
 	}
 
-	function getRangeBounds() {
+	function getRangeBoundsForScope(scope) {
 		const today = getTodayDate();
 		const todayKey = formatDateValue(today);
 
-		if (rangeFilter === 'next14') {
-			return { start: todayKey, end: formatDateValue(addDays(today, 13)) };
+		if (scope === 'thisWeek') {
+			const endOfWeek = getEndOfWeek(today);
+			return { start: todayKey, end: formatDateValue(endOfWeek) };
 		}
 
-		if (rangeFilter === 'thisMonth') {
+		if (scope === 'thisMonth') {
 			const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 			const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 			return { start: formatDateValue(monthStart), end: formatDateValue(monthEnd) };
 		}
 
-		if (rangeFilter === 'custom') {
-			ensureCustomRangeDefaults();
-			return { start: customStart, end: customEnd };
+		if (scope === 'custom') {
+			// Avoid mutating state just to compute bounds (important for counts/menus).
+			const fallbackStart = customStart || todayKey;
+			const fallbackEnd = customEnd || formatDateValue(addDays(today, 6));
+			return { start: fallbackStart, end: fallbackEnd };
 		}
 
+		// next7 default
 		return { start: todayKey, end: formatDateValue(addDays(today, 6)) };
 	}
 
-	function taskMatchesDateFilter(task) {
+	function taskMatchesDateScope(task, scope = dateScope) {
 		const dueDate = String(task.dueDate || '').trim();
 		const todayKey = getTodayKey();
 		const tomorrowKey = formatDateValue(addDays(getTodayDate(), 1));
-		const { start, end } = getRangeBounds();
+		const { start, end } = getRangeBoundsForScope(scope);
 
-		if (quickFilter === 'noDate') return !dueDate;
+		if (scope === 'noDate') return !dueDate;
 		if (!dueDate) return false;
 
-		if (quickFilter === 'overdue') return dueDate < todayKey;
-		if (dueDate < start || dueDate > end) return false;
+		if (scope === 'overdue') return dueDate < todayKey;
 
-		if (quickFilter === 'today') return dueDate === todayKey;
-		if (quickFilter === 'tomorrow') return dueDate === tomorrowKey;
-		if (quickFilter === 'weekend') return isWeekendDateKey(dueDate);
+		if (scope === 'today') return dueDate === todayKey;
+		if (scope === 'tomorrow') return dueDate === tomorrowKey;
+
+		// Remaining scopes use range bounds
+		if (dueDate < start || dueDate > end) return false;
 
 		return true;
 	}
@@ -210,27 +209,28 @@
 			}));
 	}
 
-	function getFilterSummary() {
-		const rangeLabel = rangeOptions.find((option) => option.value === rangeFilter)?.label || 'Next 7 days';
-		const quickLabel = quickFilterOptions.find((option) => option.value === quickFilter)?.label || 'All';
-		return `${rangeLabel} • ${quickLabel}`;
+	function getScopeLabel(scope = dateScope) {
+		return dateScopeOptions.find((option) => option.value === scope)?.label || 'Next 7 days';
+	}
+
+	function formatShortDate(value) {
+		const parsed = parseDateValue(value);
+		if (!parsed) return '';
+		return parsed.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+	}
+
+	function getScopeButtonLabel() {
+		if (dateScope !== 'custom') return getScopeLabel(dateScope);
+		ensureCustomRangeDefaults();
+		return `Custom (${formatShortDate(customStart)} - ${formatShortDate(customEnd)})`;
 	}
 
 	function getDefaultUpcomingDueDate() {
 		const today = getTodayDate();
-		if (quickFilter === 'noDate') return '';
-		if (quickFilter === 'today') return formatDateValue(today);
-		if (quickFilter === 'tomorrow') return formatDateValue(addDays(today, 1));
-		if (quickFilter === 'weekend') {
-			for (let index = 0; index < 14; index += 1) {
-				const candidate = addDays(today, index);
-				if (candidate.getDay() === 0 || candidate.getDay() === 6) {
-					return formatDateValue(candidate);
-				}
-			}
-			return formatDateValue(today);
-		}
-		if (rangeFilter === 'custom') {
+		if (dateScope === 'noDate') return '';
+		if (dateScope === 'today') return formatDateValue(today);
+		if (dateScope === 'tomorrow') return formatDateValue(addDays(today, 1));
+		if (dateScope === 'custom') {
 			ensureCustomRangeDefaults();
 			return customStart;
 		}
@@ -239,15 +239,24 @@
 
 	$: showModeBadge = $activeMode === 'All Modes';
 	$: normalizedSearch = search.trim().toLowerCase();
-	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && taskMatchesDateFilter(task));
+	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && taskMatchesDateScope(task));
 	$: filteredTasks = scopedTasks.filter((task) =>
 		!normalizedSearch || task.title.toLowerCase().includes(normalizedSearch)
 	);
-	$: openWeekTasks = filteredTasks.filter((task) => !task.done);
-	$: activeOpenTasks = openWeekTasks.filter((task) => !task.paused);
-	$: filteredPausedActions = openWeekTasks.filter((task) => task.paused);
+	$: openCount = filteredTasks.filter((task) => !task.done).length;
+	$: doneCount = filteredTasks.filter((task) => task.done).length;
+	$: openTasks = filteredTasks.filter((task) => !task.done);
+	$: activeOpenTasks = openTasks.filter((task) => !task.paused);
+	$: filteredPausedActions = openTasks.filter((task) => task.paused);
 	$: filteredCompletedTasks = filteredTasks.filter((task) => task.done);
 	$: visibleUpcomingGroups = groupByDueDate(activeOpenTasks);
+	$: visibleDoneGroups = groupByDueDate(filteredCompletedTasks);
+	$: scopeCounts = dateScopeOptions.reduce((counts, option) => {
+		const matchTab = (task) => (showDone ? task.done : !task.done);
+		const count = $tasks.filter((task) => modeMatches(task, $activeMode) && matchTab(task) && taskMatchesDateScope(task, option.value)).length;
+		counts[option.value] = count;
+		return counts;
+	}, {});
 	$: actionCount = actionDraft
 		.split('\n')
 		.map((line) => line.trim())
@@ -374,11 +383,100 @@
 		showDone = false;
 	}
 
+	function toggleScopeMenu() {
+		if (isMobile) {
+			openFilterSheet();
+			return;
+		}
+		scopeMenuOpen = !scopeMenuOpen;
+	}
+
+	function closeScopeMenu() {
+		scopeMenuOpen = false;
+	}
+
+	function openCustomRangePicker() {
+		ensureCustomRangeDefaults();
+		customRangeModalOpen = true;
+		closeScopeMenu();
+	}
+
+	function selectDateScope(scope) {
+		if (scope === 'custom') {
+			openCustomRangePicker();
+			return;
+		}
+		dateScope = scope;
+		closeScopeMenu();
+	}
+
+	function toggleGroup(key) {
+		const next = new Set(collapsedGroups);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		collapsedGroups = next;
+	}
+
+	function togglePausedGroup() {
+		collapsedPaused = !collapsedPaused;
+	}
+
+	function openFilterSheet() {
+		sheetScope = dateScope;
+		sheetCustomStart = customStart;
+		sheetCustomEnd = customEnd;
+		if (sheetScope === 'custom') {
+			ensureCustomRangeDefaults();
+			sheetCustomStart = customStart;
+			sheetCustomEnd = customEnd;
+		}
+		filterSheetOpen = true;
+	}
+
+	function closeFilterSheet() {
+		filterSheetOpen = false;
+	}
+
+	function applySheetCustomRange() {
+		const start = parseDateValue(sheetCustomStart);
+		const end = parseDateValue(sheetCustomEnd);
+		if (start && end && start > end) {
+			[sheetCustomStart, sheetCustomEnd] = [sheetCustomEnd, sheetCustomStart];
+		}
+		customStart = sheetCustomStart;
+		customEnd = sheetCustomEnd;
+		dateScope = 'custom';
+		filterSheetOpen = false;
+	}
+
 	function jumpToPaused() {
 		pausedSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
 	onMount(() => {
+		let mql;
+		let updateMql;
+		if (browser) {
+			mql = window.matchMedia('(max-width: 767px)');
+			updateMql = () => {
+				isMobile = mql.matches;
+				if (isMobile) scopeMenuOpen = false;
+				else filterSheetOpen = false;
+			};
+			updateMql();
+			mql.addEventListener('change', updateMql);
+		}
+
+		function handlePointerDown(event) {
+			if (!scopeMenuOpen) return;
+			const target = event.target;
+			if (!(target instanceof Node)) return;
+			const menu = document.querySelector('.upcoming-scope-menu');
+			const button = document.querySelector('.upcoming-scope-button');
+			if (menu?.contains(target) || button?.contains(target)) return;
+			closeScopeMenu();
+		}
+
 		function handleKeydown(event) {
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -402,8 +500,9 @@
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				if (customRangeModalOpen) customRangeModalOpen = false;
+				if (filterSheetOpen) filterSheetOpen = false;
+				if (scopeMenuOpen) scopeMenuOpen = false;
 				if (searchOpen) closeSearch();
-				showDone = false;
 			}
 		}
 
@@ -413,9 +512,12 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
+		window.addEventListener('pointerdown', handlePointerDown, true);
 		return () => {
+			if (mql && updateMql) mql.removeEventListener('change', updateMql);
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
+			window.removeEventListener('pointerdown', handlePointerDown, true);
 		};
 	});
 
@@ -424,18 +526,18 @@
 
 <div class="upcoming-redesign">
 	<header class="upcoming-header">
-		<div class="upcoming-top-row">
+	<div class="upcoming-top-row">
 			<div class="upcoming-title-block">
 				<div class="upcoming-title">
 					<i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
 					<h2>Upcoming</h2>
 				</div>
-				<div class="upcoming-subtitle">Plan by week and keep the next commitments visible.</div>
+				<div class="upcoming-subtitle">Pick a date scope and focus on what is next.</div>
 			</div>
 			<div class="upcoming-header-right">
-				<div class="stat-card" aria-label="Open actions in this week">
-					<div class="stat-number">{openWeekTasks.length}</div>
-					<div class="stat-label">Planned</div>
+				<div class="stat-card" aria-label="Open actions in this view">
+					<div class="stat-number">{openCount}</div>
+					<div class="stat-label">Open</div>
 				</div>
 				{#if !isMainView}
 					<button class="close-btn" type="button" aria-label="Close upcoming panel" onclick={closePanel}>
@@ -445,41 +547,27 @@
 			</div>
 		</div>
 
-		<div class="range-chip-row" role="tablist" aria-label="Date range presets">
-			{#each rangeOptions as option}
-				<button
-					type="button"
-					class={`range-chip ${rangeFilter === option.value ? 'active' : ''}`}
-					onclick={() => selectRange(option.value)}
-				>
-					{option.label}
-				</button>
-			{/each}
-		</div>
-
-		<div class="quick-chip-row" aria-label="Quick date filters">
-			{#each quickFilterOptions as option}
-				<button
-					type="button"
-					class={`quick-chip ${quickFilter === option.value ? 'active' : ''}`}
-					onclick={() => (quickFilter = option.value)}
-				>
-					{option.label}
-				</button>
-			{/each}
-		</div>
-
-		<div class="filter-summary-row">
-			<div class="filter-summary-copy">{getFilterSummary()}</div>
-			<div class="filter-summary-actions">
-				{#if rangeFilter === 'custom'}
-					<button class="toolbar-button-lite" type="button" onclick={openCustomRangePicker}>Edit custom</button>
-				{/if}
-				<button class="toolbar-button-lite" type="button" onclick={resetUpcomingFilters}>Reset filters</button>
-			</div>
-		</div>
-
 		<div class="upcoming-toolbar">
+			<div class="upcoming-segment" role="tablist" aria-label="Upcoming tabs">
+				<button
+					class={`segment-btn ${showDone ? '' : 'active'}`}
+					type="button"
+					role="tab"
+					aria-selected={!showDone}
+					onclick={() => openPendingView()}
+				>
+					Open <span class="segment-count">{openCount}</span>
+				</button>
+				<button
+					class={`segment-btn ${showDone ? 'active' : ''}`}
+					type="button"
+					role="tab"
+					aria-selected={showDone}
+					onclick={() => openCompletedView()}
+				>
+					Done <span class="segment-count">{doneCount}</span>
+				</button>
+			</div>
 			<label class="upcoming-search-shell" for="upcoming-search-input">
 				<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
 				<input
@@ -493,13 +581,36 @@
 				/>
 			</label>
 			<div class="toolbar-actions">
-				{#if showDone}
-					<button class="toolbar-button-lite" type="button" onclick={openPendingView}>Back to open</button>
-				{:else}
-					<button class="toolbar-button-lite" type="button" onclick={openCompletedView}>
-						Completed ({filteredCompletedTasks.length})
+				<div class="upcoming-scope-shell">
+					<button
+						class="toolbar-button-lite upcoming-scope-button"
+						type="button"
+						aria-haspopup="menu"
+						aria-expanded={scopeMenuOpen}
+						onclick={toggleScopeMenu}
+					>
+						<i class="fa-solid fa-sliders" aria-hidden="true"></i>
+						<span class="scope-label">{getScopeButtonLabel()}</span>
 					</button>
-				{/if}
+
+					{#if scopeMenuOpen && !isMobile}
+						<div class="upcoming-scope-menu" role="menu" aria-label="Date scope">
+							{#each dateScopeOptions as option}
+								<button
+									type="button"
+									class={`scope-menu-item ${dateScope === option.value ? 'active' : ''}`}
+									role="menuitem"
+									onclick={() => selectDateScope(option.value)}
+								>
+									<span>{option.label}</span>
+									<span class="scope-menu-count">{scopeCounts[option.value] || 0}</span>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+				<button class="toolbar-button-lite" type="button" onclick={resetUpcomingFilters}>Reset</button>
 				{#if showPausedJump}
 					<button class="toolbar-button-lite" type="button" onclick={jumpToPaused}>
 						Paused ({filteredPausedActions.length})
@@ -516,23 +627,42 @@
 		{#if showDone}
 			<div class="content-section completed-section">
 				<div class="section-header">
-					<h3>Completed actions</h3>
+					<h3>Done</h3>
 					{#if filteredCompletedTasks.length}
 						<button class="clear-btn" type="button" onclick={clearDoneForMode}>Clear done</button>
 					{/if}
 				</div>
-				{#if filteredCompletedTasks.length}
-					<div class="task-grid">
-						{#each filteredCompletedTasks as task (task.id)}
-							<div class="task-item" animate:flip={{ duration: 180 }}>
-								<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-							</div>
-						{/each}
-					</div>
+				{#if visibleDoneGroups.length}
+					{#each visibleDoneGroups as group}
+						<div class="day-group">
+							<button
+								class="day-header"
+								type="button"
+								aria-expanded={!collapsedGroups.has(`done:${group.key}`)}
+								onclick={() => toggleGroup(`done:${group.key}`)}
+							>
+								<span class="day-name">{group.label}</span>
+								{#if group.helper}
+									<span class="day-helper">{group.helper}</span>
+								{/if}
+								<span class="task-count">{group.tasks.length} actions</span>
+								<i class={`fa-solid ${collapsedGroups.has(`done:${group.key}`) ? 'fa-chevron-right' : 'fa-chevron-down'} chevron`} aria-hidden="true"></i>
+							</button>
+							{#if !collapsedGroups.has(`done:${group.key}`)}
+								<div class="task-grid">
+									{#each group.tasks as task (task.id)}
+										<div class="task-item" animate:flip={{ duration: 180 }}>
+											<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/each}
 				{:else}
 					<div class="empty-state">
 						<i class="fa-solid fa-check-circle" aria-hidden="true"></i>
-						<p>No completed actions in this view</p>
+						<p>No done actions in this view</p>
 					</div>
 				{/if}
 			</div>
@@ -541,50 +671,146 @@
 				{#if visibleUpcomingGroups.length}
 					{#each visibleUpcomingGroups as group}
 						<div class="day-group">
-							<div class="day-header">
+							<button
+								class="day-header"
+								type="button"
+								aria-expanded={!collapsedGroups.has(group.key)}
+								onclick={() => toggleGroup(group.key)}
+							>
 								<span class="day-name">{group.label}</span>
 								{#if group.helper}
 									<span class="day-helper">{group.helper}</span>
 								{/if}
 								<span class="task-count">{group.tasks.length} actions</span>
-							</div>
-							<div class="task-grid">
-								{#each group.tasks as task (task.id)}
-									<div class="task-item" animate:flip={{ duration: 180 }}>
-										<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-									</div>
-								{/each}
-							</div>
+								<i class={`fa-solid ${collapsedGroups.has(group.key) ? 'fa-chevron-right' : 'fa-chevron-down'} chevron`} aria-hidden="true"></i>
+							</button>
+							{#if !collapsedGroups.has(group.key)}
+								<div class="task-grid">
+									{#each group.tasks as task (task.id)}
+										<div class="task-item" animate:flip={{ duration: 180 }}>
+											<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+										</div>
+									{/each}
+								</div>
+							{/if}
 						</div>
 					{/each}
 				{:else}
 					<div class="empty-state">
 						<i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i>
-						<p>No upcoming actions for this week</p>
-						<span>Try another week, reset to today, or add a new action.</span>
+						<p>No open actions here</p>
+						<span>Try another date scope, reset, or add a new action.</span>
 					</div>
 				{/if}
 
 				{#if filteredPausedActions.length}
 					<div class="day-group paused-group" bind:this={pausedSection}>
-						<div class="day-header paused-header">
+						<button
+							class="day-header paused-header"
+							type="button"
+							aria-expanded={!collapsedPaused}
+							onclick={togglePausedGroup}
+						>
 							<i class="fa-solid fa-pause-circle" aria-hidden="true"></i>
 							<span>Paused</span>
 							<span class="task-count">{filteredPausedActions.length} actions</span>
-						</div>
-						<div class="task-grid">
-							{#each filteredPausedActions as task (task.id)}
-								<div class="task-item paused-item" animate:flip={{ duration: 180 }}>
-									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-								</div>
-							{/each}
-						</div>
+							<i class={`fa-solid ${collapsedPaused ? 'fa-chevron-right' : 'fa-chevron-down'} chevron`} aria-hidden="true"></i>
+						</button>
+						{#if !collapsedPaused}
+							<div class="task-grid">
+								{#each filteredPausedActions as task (task.id)}
+									<div class="task-item paused-item" animate:flip={{ duration: 180 }}>
+										<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+									</div>
+								{/each}
+							</div>
+						{/if}
 					</div>
 				{/if}
 			</div>
 		{/if}
 	</div>
 </div>
+
+{#if filterSheetOpen}
+	<div
+		class="upcoming-filter-sheet-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close filters"
+		onclick={closeFilterSheet}
+		onkeydown={(event) =>
+			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeFilterSheet()}
+	>
+		<div
+			class="upcoming-filter-sheet"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Upcoming filters"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && closeFilterSheet()}
+		>
+			<div class="sheet-head">
+				<div>
+					<div class="section-label">Filters</div>
+					<div class="sheet-title">{getScopeLabel(sheetScope)}</div>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close filters" onclick={closeFilterSheet}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<div class="sheet-section-title">Date scope</div>
+			<div class="sheet-options">
+				{#each dateScopeOptions as option}
+					<button
+						type="button"
+						class={`sheet-option ${sheetScope === option.value ? 'active' : ''}`}
+						onclick={() => {
+							if (option.value === 'custom') {
+								sheetScope = 'custom';
+								ensureCustomRangeDefaults();
+								sheetCustomStart = customStart;
+								sheetCustomEnd = customEnd;
+								return;
+							}
+							dateScope = option.value;
+							filterSheetOpen = false;
+						}}
+					>
+						<span>{option.label}</span>
+						<span class="sheet-count">{scopeCounts[option.value] || 0}</span>
+					</button>
+				{/each}
+			</div>
+
+			{#if sheetScope === 'custom'}
+				<div class="sheet-custom-range">
+					<div class="sheet-section-title">Custom range</div>
+					<div class="custom-range-grid">
+						<label class="settings-number-field">
+							<span>Start</span>
+							<input class="form-control" type="date" bind:value={sheetCustomStart} />
+						</label>
+						<label class="settings-number-field">
+							<span>End</span>
+							<input class="form-control" type="date" bind:value={sheetCustomEnd} />
+						</label>
+					</div>
+					<div class="d-flex justify-content-end gap-2 mt-3">
+						<button class="toolbar-button" type="button" onclick={() => (filterSheetOpen = false)}>Cancel</button>
+						<button class="toolbar-button active" type="button" onclick={applySheetCustomRange}>Apply range</button>
+					</div>
+				</div>
+			{/if}
+
+			<div class="sheet-footer">
+				<button class="toolbar-button-lite" type="button" onclick={resetUpcomingFilters}>Reset</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if customRangeModalOpen}
 	<div
@@ -609,7 +835,7 @@
 				<div>
 					<div class="section-label">Custom range</div>
 					<h2 class="h6 mt-2 mb-1" id="custom-range-title">Choose start and end date</h2>
-					<p class="soft-text small mb-0">This range is used with your selected quick filter.</p>
+					<p class="soft-text small mb-0">This range becomes your active date scope.</p>
 				</div>
 				<button class="icon-button" type="button" aria-label="Close custom range picker" onclick={() => (customRangeModalOpen = false)}>
 					<i class="fa-solid fa-xmark"></i>
@@ -890,6 +1116,54 @@
 		flex-wrap: wrap;
 	}
 
+	.upcoming-segment {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.2rem;
+		border-radius: 0.8rem;
+		border: 1px solid rgba(137, 186, 255, 0.2);
+		background: rgba(255, 255, 255, 0.04);
+	}
+
+	.segment-btn {
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+		padding: 0.42rem 0.68rem;
+		border-radius: 0.62rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+	}
+
+	.segment-btn:hover {
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.segment-btn.active {
+		background: rgba(45, 127, 249, 0.24);
+		color: var(--text);
+	}
+
+	.segment-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.7rem;
+		padding: 0.08rem 0.4rem;
+		border-radius: 999px;
+		border: 1px solid rgba(137, 186, 255, 0.18);
+		background: rgba(255, 255, 255, 0.05);
+		font-size: 0.72rem;
+		font-weight: 800;
+		color: inherit;
+	}
+
 	.upcoming-search-shell {
 		display: inline-flex;
 		align-items: center;
@@ -923,6 +1197,79 @@
 		display: flex;
 		align-items: center;
 		gap: 0.45rem;
+	}
+
+	.upcoming-scope-shell {
+		position: relative;
+	}
+
+	.upcoming-scope-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+
+	.scope-label {
+		max-width: 14rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.upcoming-scope-menu {
+		position: absolute;
+		top: calc(100% + 0.45rem);
+		right: 0;
+		min-width: 16rem;
+		padding: 0.45rem;
+		border-radius: 0.95rem;
+		border: 1px solid var(--line-strong);
+		background: var(--panel-solid);
+		box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+		z-index: 1300;
+		display: grid;
+		gap: 0.3rem;
+	}
+
+	.scope-menu-item {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.52rem 0.65rem;
+		border-radius: 0.75rem;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--text);
+		font-size: 0.82rem;
+		font-weight: 650;
+		cursor: pointer;
+		transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+	}
+
+	.scope-menu-item:hover {
+		background: rgba(79, 70, 229, 0.12);
+		border-color: rgba(245, 158, 11, 0.22);
+	}
+
+	.scope-menu-item.active {
+		background: rgba(79, 70, 229, 0.18);
+		border-color: rgba(245, 158, 11, 0.32);
+	}
+
+	.scope-menu-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 2rem;
+		padding: 0.08rem 0.45rem;
+		border-radius: 999px;
+		border: 1px solid rgba(137, 186, 255, 0.14);
+		background: rgba(255, 255, 255, 0.05);
+		color: var(--muted);
+		font-size: 0.74rem;
+		font-weight: 800;
 	}
 
 	.toolbar-button-lite {
@@ -1038,11 +1385,35 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		width: 100%;
+		text-align: left;
+		font: inherit;
+		cursor: pointer;
 		padding: 0.52rem 0.7rem;
 		background: rgba(255, 255, 255, 0.05);
 		border: 1px solid rgba(137, 186, 255, 0.18);
 		border-radius: 0.7rem;
 		margin-bottom: 0.6rem;
+	}
+
+	.day-header:hover {
+		background: rgba(255, 255, 255, 0.075);
+	}
+
+	.day-header:focus-visible {
+		outline: 2px solid rgba(89, 213, 255, 0.35);
+		outline-offset: 2px;
+	}
+
+	.chevron {
+		opacity: 0.55;
+		font-size: 0.85em;
+		margin-left: 0.25rem;
+	}
+
+	.paused-header .chevron {
+		color: var(--amber);
+		opacity: 0.75;
 	}
 
 	.paused-header {
@@ -1130,6 +1501,95 @@
 		gap: 0.7rem;
 	}
 
+	.upcoming-filter-sheet-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.55);
+		z-index: 1350;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		padding: 0.85rem 0.85rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+	}
+
+	.upcoming-filter-sheet {
+		width: min(34rem, 100%);
+		max-height: min(82vh, 46rem);
+		overflow: auto;
+		border-radius: 1.2rem;
+		border: 1px solid var(--line-strong);
+		background: var(--panel-solid);
+		box-shadow: 0 -28px 70px rgba(0, 0, 0, 0.5);
+		padding: 1rem;
+	}
+
+	.sheet-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 0.8rem;
+	}
+
+	.sheet-title {
+		color: var(--text);
+		font-weight: 700;
+		margin-top: 0.2rem;
+		font-size: 0.9rem;
+	}
+
+	.sheet-section-title {
+		margin-top: 0.85rem;
+		margin-bottom: 0.45rem;
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.sheet-options {
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.sheet-option {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.65rem 0.75rem;
+		border-radius: 0.9rem;
+		border: 1px solid rgba(137, 186, 255, 0.14);
+		background: rgba(255, 255, 255, 0.03);
+		color: var(--text);
+		font-weight: 650;
+		cursor: pointer;
+	}
+
+	.sheet-option.active {
+		border-color: rgba(89, 213, 255, 0.28);
+		background: rgba(45, 127, 249, 0.18);
+	}
+
+	.sheet-count {
+		color: var(--muted);
+		font-size: 0.78rem;
+		font-weight: 800;
+	}
+
+	.sheet-custom-range {
+		margin-top: 0.5rem;
+		padding-top: 0.6rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.sheet-footer {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 0.9rem;
+	}
+
 	/* Responsive Design */
 	@media (max-width: 640px) {
 		.upcoming-redesign {
@@ -1170,13 +1630,23 @@
 			align-items: stretch;
 		}
 
+		.upcoming-segment {
+			width: 100%;
+			justify-content: space-between;
+		}
+
 		.upcoming-search-shell {
 			max-width: none;
 		}
 
 		.toolbar-actions {
 			width: 100%;
-			justify-content: space-between;
+			justify-content: flex-end;
+			flex-wrap: wrap;
+		}
+
+		.scope-label {
+			display: none;
 		}
 
 		.filter-summary-actions {

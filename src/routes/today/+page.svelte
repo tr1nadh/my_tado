@@ -1,5 +1,7 @@
 <script>
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import InboxPanel from '$lib/components/InboxPanel.svelte';
 	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import TaskRow from '$lib/components/TaskRow.svelte';
@@ -69,18 +71,32 @@
 	let focusHoldConsumed = false;
 	let todayRailOpen = false;
 	let activeIslandTab = 'Today';
+	const islandTabs = ['All', 'Today', 'Upcoming'];
 	let islandLockToastAt = 0;
 	let timelineGrid;
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
 	let timelineUpdateInterval;
+	let railCompact = browser ? window.matchMedia('(max-width: 1199px)').matches : false;
+
+	// Pinned rail works great on desktop, but on smaller screens it should behave like a normal off-canvas.
+	$: effectiveRailPinned = $settings.todayRailPinned && !railCompact;
 
 	// Treat the floating time-block rail as an off-canvas drawer (locks background scroll while open).
 	$: if (browser) {
 		document.body.classList.toggle(
 			'karya-offcanvas-open',
-			todayRailOpen && !$settings.todayRailPinned
+			todayRailOpen && !effectiveRailPinned
 		);
+	}
+
+	$: requestedIslandTab = (() => {
+		const tab = $page.url.searchParams.get('tab');
+		return islandTabs.includes(tab) ? tab : 'Today';
+	})();
+
+	$: if (requestedIslandTab !== activeIslandTab) {
+		activeIslandTab = requestedIslandTab;
 	}
 
 	// Pre-calculate timeline hours once to avoid expensive re-renders
@@ -295,7 +311,7 @@
 	}
 
 	function closeTodayRail() {
-		if ($settings.todayRailPinned) return;
+		if (effectiveRailPinned) return;
 		todayRailOpen = false;
 	}
 
@@ -308,21 +324,37 @@
 	}
 
 	function toggleUpcomingRail() {
-		if (activeModeTimeBlock) {
-			toast.show('Auto schedule is active. Stay on Today.', 'lock');
-			return;
-		}
-		activeIslandTab = 'Upcoming';
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		setIslandTab('Upcoming');
 	}
 
 	function toggleInboxRail() {
-		if (activeModeTimeBlock) {
+		setIslandTab('All');
+	}
+
+	function setIslandTab(nextTab, { scroll = true, replaceState = true } = {}) {
+		const safeTab = islandTabs.includes(nextTab) ? nextTab : 'Today';
+		let finalTab = safeTab;
+
+		if (activeModeTimeBlock && finalTab !== 'Today') {
 			toast.show('Auto schedule is active. Stay on Today.', 'lock');
-			return;
+			finalTab = 'Today';
 		}
-		activeIslandTab = 'All';
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+
+		activeIslandTab = finalTab;
+
+		if (browser) {
+			const currentUrlTab = $page.url.searchParams.get('tab') || 'Today';
+			if ($page.url.pathname !== '/today' || currentUrlTab !== finalTab) {
+				goto(`/today?tab=${encodeURIComponent(finalTab)}`, {
+					replaceState,
+					keepFocus: true,
+					noScroll: true
+				});
+			}
+			if (scroll) {
+				window.scrollTo({ top: 0, behavior: 'smooth' });
+			}
+		}
 	}
 
 	function persistModeBlocks(nextBlocks) {
@@ -605,6 +637,9 @@
 			islandLockToastAt = now;
 			toast.show('Auto schedule is active. Locked to Today view.', 'lock');
 		}
+		if (browser && $page.url.searchParams.get('tab') !== 'Today') {
+			goto('/today?tab=Today', { replaceState: true, keepFocus: true, noScroll: true });
+		}
 	}
 	
 	// Use state-based current minutes that update every minute via timer
@@ -881,6 +916,17 @@
 	}
 
 	onMount(() => {
+		let mql;
+		let updateMql;
+		if (browser) {
+			mql = window.matchMedia('(max-width: 1199px)');
+			updateMql = () => {
+				railCompact = mql.matches;
+			};
+			updateMql();
+			mql.addEventListener('change', updateMql);
+		}
+
 		syncActiveModeToBlock();
 
 		// Seed a default Sleep block for today if none exists yet
@@ -919,6 +965,11 @@
 			}
 		}
 
+		function handleVisibilityChange() {
+			if (document.hidden) return;
+			updateTimelineTime();
+		}
+
 		function handleKeydown(event) {
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -936,7 +987,7 @@
 				openSearch();
 			}
 			if (event.key === 'Escape') {
-				if (todayRailOpen && !$settings.todayRailPinned) {
+				if (todayRailOpen && !effectiveRailPinned) {
 					event.preventDefault();
 					closeTodayRail();
 					return;
@@ -958,12 +1009,19 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
+		window.addEventListener('focus', updateTimelineTime);
+		window.addEventListener('pageshow', updateTimelineTime);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		updateTimelineTime();
 		timelineUpdateInterval = setInterval(updateTimelineTime, 60000);
 
 		return () => {
+			if (mql && updateMql) mql.removeEventListener('change', updateMql);
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
+			window.removeEventListener('focus', updateTimelineTime);
+			window.removeEventListener('pageshow', updateTimelineTime);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			if (modeBlockInterval) clearInterval(modeBlockInterval);
 			if (timelineUpdateInterval) clearInterval(timelineUpdateInterval);
 		};
@@ -978,7 +1036,7 @@
 	});
 </script>
 
-<div class="actions-panel-shell has-dynamic-island">
+<div class="actions-panel-shell">
 	<div class="actions-main-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
 		<SubtleHeader
 			activeModeTimeBlock={activeModeTimeBlock}
@@ -1264,7 +1322,7 @@
 			</section>
 		{/if}
 
-		{#if todayRailOpen && !$settings.todayRailPinned}
+		{#if todayRailOpen && !effectiveRailPinned}
 			<div
 				class="today-time-rail-backdrop"
 				aria-hidden="true"
@@ -1272,11 +1330,11 @@
 			></div>
 		{/if}
 		<aside
-			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
+			class={`today-time-rail ${todayRailOpen || effectiveRailPinned ? 'open' : 'collapsed'} ${effectiveRailPinned ? 'pinned' : 'floating'}`}
 			aria-label="Today time blocks"
 			role="dialog"
-			aria-modal={todayRailOpen && !$settings.todayRailPinned}
-			aria-hidden={!(todayRailOpen || $settings.todayRailPinned)}
+			aria-modal={todayRailOpen && !effectiveRailPinned}
+			aria-hidden={!(todayRailOpen || effectiveRailPinned)}
 			tabindex="-1"
 		>
 				<div class="today-time-rail-content">
@@ -1692,43 +1750,8 @@
 				</div>
 			</div>
 		{/if}
-	</div>
 </div>
-<!-- Dynamic Island–style nav (bottom center) -->
-<nav class="dynamic-island-nav mb-4" aria-label="Primary">
-	<button
-		type="button p-2"
-		class={`island-tab ${activeIslandTab === 'All' ? 'active' : ''}`}
-		aria-current={activeIslandTab === 'All' ? 'page' : undefined}
-		onclick={toggleInboxRail}
-	>
-		<i class="fa-solid fa-layer-group island-icon" aria-hidden="true"></i>
-		<span class="island-label">All</span>
-	</button>
-
-	<button
-		type="button"
-		class={`island-tab ${activeIslandTab === 'Today' ? 'active' : ''}`}
-		aria-current={activeIslandTab === 'Today' ? 'page' : undefined}
-		onclick={() => {
-			activeIslandTab = 'Today';
-			window.scrollTo({ top: 0, behavior: 'smooth' });
-		}}
-	>
-		<i class="fa-solid fa-sun island-icon" aria-hidden="true"></i>
-		<span class="island-label">Today</span>
-	</button>
-
-	<button
-		type="button"
-		class={`island-tab ${activeIslandTab === 'Upcoming' ? 'active' : ''}`}
-		aria-current={activeIslandTab === 'Upcoming' ? 'page' : undefined}
-		onclick={toggleUpcomingRail}
-	>
-		<i class="fa-solid fa-calendar-days island-icon" aria-hidden="true"></i>
-		<span class="island-label">Upcoming</span>
-	</button>
-</nav>
+</div>
 
 <style>
 	/* Tab button styling */
@@ -1748,9 +1771,9 @@
 
 	/* Integrated Subtle Mode Selector Active States */
 	:global(.today-subtle-mode-display.active) {
-		background: rgba(45, 127, 249, 0.05) !important;
+		background: var(--panel-strong) !important;
 		border-color: var(--mode-color, var(--blue)) !important;
-		color: #fff !important;
+		color: var(--text) !important;
 		padding-left: 1.15rem;
 		overflow: hidden;
 	}
@@ -1758,12 +1781,12 @@
 	:global(.today-subtle-modes-dropdown.locked .mode-pill) {
 		opacity: 0.6;
 		cursor: not-allowed !important;
-		background: rgba(255, 255, 255, 0.01) !important;
+		background: var(--panel) !important;
 	}
 
 	:global(.today-subtle-modes-dropdown.locked .mode-pill:hover) {
 		transform: none !important;
-		border-color: rgba(129, 181, 255, 0.08) !important;
+		border-color: var(--line) !important;
 	}
 	
 	:global(.today-subtle-mode-icon-shell) {
@@ -1811,151 +1834,6 @@
 	:global(.today-time-block.active:hover) {
 		box-shadow: 0 0 16px rgba(100, 100, 100, 0.15);
 	}
-	/* Reserve space so scrollable content never sits under the fixed island */
-	.actions-panel-shell.has-dynamic-island {
-		--island-nav-reserve: 6.25rem;
-		padding-bottom: calc(var(--island-nav-reserve) + env(safe-area-inset-bottom, 0px));
-	}
-
-	.dynamic-island-nav {
-		position: fixed;
-		left: 50%;
-		bottom: max(1rem, calc(0.65rem + env(safe-area-inset-bottom, 0px)));
-		top: auto;
-		transform: translateX(-50%);
-		display: flex;
-		align-items: center;
-		width: min(32rem, calc(100vw - 1.1rem));
-		padding: 0.5rem 0.64rem;
-		gap: 0.36rem;
-		background:
-			linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.015)),
-			rgba(7, 14, 24, 0.86);
-		backdrop-filter: blur(16px) saturate(140%);
-		-webkit-backdrop-filter: blur(16px) saturate(140%);
-		border-radius: 999px;
-		border: 1px solid rgba(133, 188, 255, 0.22);
-		box-shadow:
-			0 14px 30px rgba(0, 0, 0, 0.33),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
-		z-index: 1025;
-		overflow: hidden;
-		pointer-events: none;
-	}
-
-	.island-tab {
-		position: relative;
-		flex: 1 1 0;
-		min-width: 0;
-		border: 1px solid transparent;
-		background: transparent;
-		color: var(--muted);
-		padding: 0.66rem 0.88rem;
-		border-radius: 0.9rem;
-		font-weight: 600;
-		font-size: 0.8rem;
-		cursor: pointer;
-		transition:
-			transform 0.2s ease,
-			background 0.2s ease,
-			border-color 0.2s ease,
-			color 0.2s ease,
-			box-shadow 0.2s ease;
-		display: flex;
-		flex-direction: row;
-		gap: 0.5rem;
-		align-items: center;
-		justify-content: center;
-		white-space: nowrap;
-		pointer-events: auto;
-	}
-
-	.island-tab::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border-radius: inherit;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
-		opacity: 0;
-		transition: opacity 0.2s ease;
-		pointer-events: none;
-	}
-
-	.island-icon {
-		font-size: 0.74rem;
-		opacity: 0.86;
-	}
-
-	.island-label {
-		line-height: 1;
-	}
-
-	/* Desktop island navigation — compact sizing */
-	@media (min-width: 1200px) {
-		.actions-panel-shell.has-dynamic-island {
-			--island-nav-reserve: 5rem;
-		}
-
-		.dynamic-island-nav {
-			width: min(clamp(24rem, 36vw, 34rem), calc(100vw - 2rem));
-			max-width: calc(100vw - 2rem);
-			padding: 0.36rem 0.58rem;
-			gap: 0.3rem;
-			bottom: 0.7rem;
-		}
-
-		.island-tab {
-			padding: 0.58rem 0.8rem;
-			font-size: 0.79rem;
-		}
-	}
-
-	.island-tab:hover:not(:disabled) {
-		color: var(--text);
-		background: rgba(74, 143, 255, 0.13);
-		border-color: rgba(141, 193, 255, 0.25);
-		transform: translateY(-1px);
-	}
-
-	.island-tab.active {
-		color: var(--text);
-		background:
-			linear-gradient(145deg, rgba(68, 164, 255, 0.32), rgba(61, 104, 220, 0.22)),
-			rgba(40, 86, 176, 0.24);
-		border-color: rgba(117, 212, 255, 0.45);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.16),
-			0 6px 14px rgba(34, 95, 182, 0.33);
-	}
-
-	.island-tab:hover:not(:disabled)::before,
-	.island-tab.active::before {
-		opacity: 1;
-	}
-
-	.island-tab:focus-visible {
-		outline: 2px solid rgba(158, 210, 255, 0.9);
-		outline-offset: 2px;
-	}
-
-	@media (max-width: 460px) {
-		.dynamic-island-nav {
-			width: calc(100vw - 0.75rem);
-			padding: 0.34rem 0.36rem;
-			gap: 0.22rem;
-		}
-
-		.island-tab {
-			padding: 0.52rem 0.42rem;
-		}
-
-		.island-icon {
-			display: none;
-		}
-
-		.island-label {
-			font-size: 0.76rem;
-		}
-	}
+	/* Island nav moved to global layout (IslandNav.svelte) */
 
 </style>
