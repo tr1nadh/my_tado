@@ -43,15 +43,17 @@
 <style>
     .toast-container {
         position: fixed;
-        bottom: 2rem;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1000;
+        top: calc(1rem + env(safe-area-inset-top, 0px));
+        right: 1rem;
+        left: auto;
+        bottom: auto;
+        transform: none;
+        z-index: 1400;
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
         pointer-events: none;
-        width: min(90vw, 400px);
+        width: min(90vw, 360px);
     }
 
     .toast-item {

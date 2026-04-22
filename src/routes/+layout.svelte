@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import {
 		checkForDesktopUpdates,
 		desktopUpdate,
@@ -11,13 +12,18 @@
 	} from '$lib/desktopUpdater';
 	import {
 		activeMode,
+		getActiveModeTimeBlock,
 		getModeIcon,
 		initTasks,
 		modeIcons,
 		modes,
-		renameMode
+		renameMode,
+		settings,
+		settingsReady
 	} from '$lib/tasks';
+	import { toast } from '$lib/toast';
 	import GlobalClock from '$lib/components/GlobalClock.svelte';
+	import ToastContainer from '$lib/components/ToastContainer.svelte';
 
 	const { children } = $props();
 	let modeEditorOpen = $state(false);
@@ -29,6 +35,9 @@
 	let draggedMode = $state(null);
 	const todayDateNumber = new Date().getDate();
 	const isHomePage = $derived(page.url.pathname === '/');
+	let navLockToastAt = $state(0);
+	let navRedirectToastAt = $state(0);
+	let navRedirectInFlight = $state(false);
 
 	const navItems = [{ href: '/today', label: 'Today', description: 'Due now', icon: 'date' }];
 	const searchableRoutes = new Set(navItems.map((item) => item.href));
@@ -37,7 +46,52 @@
 		initTasks();
 		initDesktopUpdater();
 
+		const unsubscribeBefore = beforeNavigate((navigation) => {
+			if (navigation.type === 'leave') return;
+			if (!$settingsReady) return;
+
+			const activeBlock = getActiveModeTimeBlock($settings, new Date());
+			if (!activeBlock) return;
+
+			const nextPath = navigation.to?.url?.pathname;
+			if (!nextPath || nextPath === '/today') return;
+
+			navigation.cancel();
+
+			const now = Date.now();
+			if (now - navLockToastAt > 900) {
+				navLockToastAt = now;
+				toast.show('Auto schedule is active. Stay on Today until your current block ends.', 'lock');
+			}
+		});
+
+		function enforceTodayOnly() {
+			if (!$settingsReady) return;
+
+			const activeBlock = getActiveModeTimeBlock($settings, new Date());
+			if (!activeBlock) return;
+			if (window.location.pathname === '/today') return;
+			if (navRedirectInFlight) return;
+
+			const now = Date.now();
+			if (now - navRedirectToastAt > 1500) {
+				navRedirectToastAt = now;
+				toast.show('Auto schedule is active. Redirecting to Today.', 'lock');
+			}
+
+			navRedirectInFlight = true;
+			goto('/today', { replaceState: true }).finally(() => {
+				navRedirectInFlight = false;
+			});
+		}
+
+		// Catch direct loads to non-Today routes and block-start transitions while user is elsewhere.
+		enforceTodayOnly();
+		const lockInterval = setInterval(enforceTodayOnly, 15000);
+
 		return () => {
+			unsubscribeBefore?.();
+			clearInterval(lockInterval);
 		};
 	});
 
@@ -247,6 +301,8 @@
 		</div>
 	</div>
 </div>
+
+<ToastContainer />
 
 
 

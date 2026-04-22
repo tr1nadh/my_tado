@@ -68,6 +68,14 @@
 	let modeBlockInterval;
 	let timelineUpdateInterval;
 
+	// Treat the floating time-block rail as an off-canvas drawer (locks background scroll while open).
+	$: if (browser) {
+		document.body.classList.toggle(
+			'karya-offcanvas-open',
+			todayRailOpen && !$settings.todayRailPinned
+		);
+	}
+
 	// Pre-calculate timeline hours once to avoid expensive re-renders
 	const hourFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true });
 	const todayTimelineHours = Array.from({ length: 24 }, (_, index) => {
@@ -510,6 +518,7 @@
 		: $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: backlogTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && !isToday(task.dueDate) && !isOverdue(task.dueDate));
+	$: backlogActiveTasks = backlogTasks.filter((task) => !task.paused);
 	
 	$: searchPoolTasks = [...scopedTasks, ...backlogTasks];
 	$: modalSearchedTasks = searchPoolTasks.filter((task) => {
@@ -557,13 +566,16 @@
 		focusPauseReasonDraft = activeFocusTask?.pauseReason || '';
 	}
 	$: completedTasks = sortByTodayStar(scopedTasks.filter((task) => task.done));
+	$: completedTodayTasks = completedTasks.filter((task) => isToday(task.dueDate));
 	$: actionCount = actionDraft
 		.split('\n')
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = taskViewMode === 'active' && pausedActions.length > 0 && (!pausedSection || !pausedVisible);
-	$: todayTotalCount = scopedTasks.length;
-	$: todayDoneCount = completedTasks.length;
+	// ZenProgress is completion % for due-now actions (today + overdue), excluding paused.
+	$: activeNotPausedCount = overdueActiveActions.length + todayActiveActions.length;
+	$: todayDoneCount = completedTodayTasks.length;
+	$: todayTotalCount = activeNotPausedCount + todayDoneCount;
 	$: todayModeSummaryMap = allTodayScopedTasks.reduce((summary, task) => {
 		const current = summary.get(task.mode) || { mode: task.mode, count: 0, overdueCount: 0 };
 		current.count += 1;
@@ -928,6 +940,11 @@
 				openSearch();
 			}
 			if (event.key === 'Escape') {
+				if (todayRailOpen && !$settings.todayRailPinned) {
+					event.preventDefault();
+					todayRailOpen = false;
+					return;
+				}
 				event.preventDefault();
 				if (inboxRailOpen) {
 					inboxRailOpen = false;
@@ -971,6 +988,7 @@
 		clearFocusHold(true);
 		stopTimeBlockResize();
 		stopTimeBlockDrag();
+		if (browser) document.body.classList.remove('karya-offcanvas-open');
 	});
 </script>
 
@@ -1051,12 +1069,12 @@
 				onclick={() => { taskViewMode = 'completed'; panelDirection = 1; }}
 				style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
 			>
-				Completed {#if completedTasks.length > 0}<span style="opacity: 0.6;">({completedTasks.length})</span>{/if}
+				Completed {#if completedTodayTasks.length > 0}<span style="opacity: 0.6;">({completedTodayTasks.length})</span>{/if}
 			</button>
 		</div>
 
 		{#if taskViewMode === 'completed'}
-			{#if completedTasks.length}
+			{#if completedTodayTasks.length}
 				<section
 					class="mb-4"
 					in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
@@ -1064,7 +1082,7 @@
 				>
 					<div class="list-heading">Completed Actions</div>
 						<div class="task-list">
-							{#each completedTasks as task (task.id)}
+							{#each completedTodayTasks as task (task.id)}
 								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
 									<TaskRow
 										{task}
@@ -1295,10 +1313,18 @@
 	<aside class="right-dock" style="margin-top: 3.7rem;">
 	</aside>
 
+	{#if todayRailOpen && !$settings.todayRailPinned}
+		<div class="today-time-rail-backdrop" aria-hidden="true" onclick={closeTodayRail}></div>
+	{/if}
+
 	<div class="today-time-rail-container {$settings.todayRailPinned ? 'pinned' : ''}">
 		<aside
 			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
 			aria-label="Today time blocks"
+			role="dialog"
+			aria-modal={todayRailOpen && !$settings.todayRailPinned}
+			aria-hidden={!(todayRailOpen || $settings.todayRailPinned)}
+			tabindex="-1"
 		>
 			<div class="today-time-rail-content">
 				<div class="today-time-rail-head align-items-center pb-2 mb-3 border-bottom border-light border-opacity-10">
@@ -1323,7 +1349,7 @@
 							type="button"
 							aria-label="Close mode blocks"
 							title="Close"
-							onclick={() => (todayRailOpen = false)}
+							onclick={closeTodayRail}
 						>
 							<i class="fa-solid fa-xmark"></i>
 						</button>

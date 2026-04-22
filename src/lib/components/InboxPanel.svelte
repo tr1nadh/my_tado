@@ -30,6 +30,7 @@
 	let actionInput;
 	let panelDirection = 1;
 	let actionDismissedPhrases = [];
+	let listTab = 'open'; // 'open' | 'paused'
 	export let open = false;
 	export let closePanel = () => {};
 	export let isMainView = false;
@@ -152,6 +153,14 @@
 	function openPendingView() {
 		panelDirection = -1;
 		showDone = false;
+		listTab = 'open';
+	}
+
+	$: if (!showDone && listTab === 'open' && !activeOpenTasks.length && pausedActions.length) {
+		listTab = 'paused';
+	}
+	$: if (!showDone && listTab === 'paused' && !pausedActions.length && activeOpenTasks.length) {
+		listTab = 'open';
 	}
 
 	onMount(() => {
@@ -203,31 +212,7 @@
 				<h2 class="all-title">All</h2>
 				<p class="all-subtitle">Everything in the selected mode. Use the top mode bar to switch context.</p>
 			</div>
-			{#if !isMainView}
-				<button class="all-close" type="button" aria-label="Close all panel" onclick={closePanel}>
-					<i class="fa-solid fa-xmark" aria-hidden="true"></i>
-				</button>
-			{/if}
-		</div>
-
-		<div class="all-toolbar">
-			<div class="all-meta">
-				<div class="all-count-chip">
-					<span class="all-count-value">{openTasks.length}</span>
-					<span>{openTasks.length === 1 ? 'action' : 'actions'}</span>
-				</div>
-				{#if !showDone && completedTasks.length}
-					<button class="all-toggle" type="button" onclick={openCompletedView}>
-						Completed ({completedTasks.length})
-					</button>
-				{/if}
-				{#if showDone}
-					<button class="all-toggle" type="button" onclick={openPendingView}>Back to open</button>
-					<button class="all-toggle danger" type="button" onclick={clearDoneForMode}>Clear done</button>
-				{/if}
-			</div>
-
-			<div class="all-actions">
+			<div class="all-title-actions">
 				<button
 					class="icon-button search-launch-button"
 					type="button"
@@ -239,7 +224,49 @@
 				<button class="all-add" type="button" aria-label="Add action" onclick={openActionModal}>
 					<i class="fa-solid fa-plus" aria-hidden="true"></i>
 				</button>
+				{#if !isMainView}
+					<button class="all-close" type="button" aria-label="Close all panel" onclick={closePanel}>
+						<i class="fa-solid fa-xmark" aria-hidden="true"></i>
+					</button>
+				{/if}
 			</div>
+		</div>
+
+		<div class="all-toolbar">
+			<div class="all-meta">
+				{#if !showDone}
+					<div class="all-tabs" role="tablist" aria-label="All tabs">
+						<button
+							type="button"
+							class="all-tab {listTab === 'open' ? 'active' : ''}"
+							role="tab"
+							aria-selected={listTab === 'open'}
+							onclick={() => (listTab = 'open')}
+						>
+							Open <span class="all-tab-count">{activeOpenTasks.length}</span>
+						</button>
+						<button
+							type="button"
+							class="all-tab {listTab === 'paused' ? 'active' : ''}"
+							role="tab"
+							aria-selected={listTab === 'paused'}
+							onclick={() => (listTab = 'paused')}
+						>
+							Paused <span class="all-tab-count">{pausedActions.length}</span>
+						</button>
+					</div>
+
+					{#if completedTasks.length}
+						<button class="all-toggle" type="button" onclick={openCompletedView}>
+							Completed ({completedTasks.length})
+						</button>
+					{/if}
+				{:else}
+					<button class="all-toggle" type="button" onclick={openPendingView}>Back</button>
+					<button class="all-toggle danger" type="button" onclick={clearDoneForMode}>Clear done</button>
+				{/if}
+			</div>
+
 		</div>
 	</header>
 
@@ -268,32 +295,34 @@
 				in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
 				out:fly={{ x: panelDirection < 0 ? -56 : 56, duration: 120 }}
 			>
-				{#if activeOpenTasks.length}
-					<section class="all-section">
-						<div class="all-section-heading">Open</div>
-						<div class="task-list">
-							{#each activeOpenTasks as task (task.id)}
-								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-								</div>
-							{/each}
-						</div>
-					</section>
-				{:else if !pausedActions.length}
-					<div class="empty-state">All is clear for this mode.</div>
-				{/if}
-
-				{#if pausedActions.length}
-					<section class="all-section all-paused">
-						<div class="all-section-heading">Paused</div>
-						<div class="task-list">
-							{#each pausedActions as task (task.id)}
-								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
-								</div>
-							{/each}
-						</div>
-					</section>
+				{#if listTab === 'open'}
+					{#if activeOpenTasks.length}
+						<section class="all-section all-section-flat">
+							<div class="task-list">
+								{#each activeOpenTasks as task (task.id)}
+									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+										<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+									</div>
+								{/each}
+							</div>
+						</section>
+					{:else}
+						<div class="empty-state">{pausedActions.length ? 'No open actions. Check Paused.' : 'All is clear for this mode.'}</div>
+					{/if}
+				{:else}
+					{#if pausedActions.length}
+						<section class="all-section all-section-flat">
+							<div class="task-list">
+								{#each pausedActions as task (task.id)}
+									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+										<TaskRow {task} disableOptions={searchOpen} {showModeBadge} />
+									</div>
+								{/each}
+							</div>
+						</section>
+					{:else}
+						<div class="empty-state">No paused actions right now.</div>
+					{/if}
 				{/if}
 			</div>
 		{/if}
@@ -444,8 +473,8 @@
 		background:
 			radial-gradient(circle at top left, rgba(37, 112, 215, 0.18), transparent 42%),
 			linear-gradient(165deg, rgba(7, 17, 32, 0.96), rgba(6, 12, 24, 0.98));
-		border: 1px solid rgba(133, 188, 255, 0.16);
-		border-radius: 1.05rem;
+		border: none;
+		border-radius: 0;
 		overflow: hidden;
 	}
 
@@ -462,6 +491,14 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 0.75rem;
+	}
+
+	.all-title-actions {
+		display: inline-flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.45rem;
+		flex-shrink: 0;
 	}
 
 	.all-title {
@@ -513,23 +550,54 @@
 		flex-wrap: wrap;
 	}
 
-	.all-count-chip {
+	.all-tabs {
 		display: inline-flex;
-		align-items: baseline;
-		gap: 0.34rem;
-		padding: 0.28rem 0.62rem;
+		align-items: center;
+		gap: 0.15rem;
+		padding: 0.16rem;
 		border-radius: 999px;
-		border: 1px solid rgba(89, 213, 255, 0.3);
-		background: rgba(45, 127, 249, 0.16);
-		color: #d8efff;
-		font-size: 0.74rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
+		border: 1px solid rgba(133, 188, 255, 0.18);
+		background: rgba(255, 255, 255, 0.04);
 	}
 
-	.all-count-value {
-		font-size: 0.92rem;
+	.all-tab {
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+		border-radius: 999px;
+		padding: 0.36rem 0.7rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		white-space: nowrap;
+	}
+
+	.all-tab:hover {
+		background: rgba(255, 255, 255, 0.08);
+		color: var(--text);
+	}
+
+	.all-tab.active {
+		background: rgba(45, 127, 249, 0.18);
+		color: var(--text);
+	}
+
+	.all-tab-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.5rem;
+		height: 1.2rem;
+		padding: 0 0.45rem;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.08);
+		color: var(--text);
+		font-size: 0.74rem;
 		font-weight: 700;
 	}
 
@@ -552,12 +620,6 @@
 	.all-toggle.danger {
 		border-color: rgba(255, 107, 129, 0.3);
 		color: #ff9aa9;
-	}
-
-	.all-actions {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
 	}
 
 	.all-add {
@@ -593,9 +655,11 @@
 		background: rgba(255, 255, 255, 0.03);
 	}
 
-	.all-paused {
-		border-color: rgba(255, 184, 77, 0.26);
-		background: rgba(255, 184, 77, 0.08);
+	.all-section-flat {
+		border: 0;
+		background: transparent;
+		padding: 0;
+		margin-bottom: 0;
 	}
 
 	.all-section-heading {
@@ -609,7 +673,7 @@
 
 	@media (max-width: 640px) {
 		.all-panel {
-			border-radius: 0.82rem;
+			border-radius: 0;
 		}
 
 		.all-header {
@@ -627,16 +691,7 @@
 		}
 
 		.all-toolbar {
-			align-items: stretch;
-		}
-
-		.all-meta {
-			width: 100%;
-		}
-
-		.all-actions {
-			width: 100%;
-			justify-content: flex-end;
+			gap: 0.65rem;
 		}
 
 		.all-content {

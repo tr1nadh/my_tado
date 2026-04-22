@@ -2134,6 +2134,18 @@ body.task-drag-active * {
 	min-width: 0;
 }
 
+body.karya-offcanvas-open {
+	overflow: hidden;
+}
+
+.today-time-rail-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(2px);
+	z-index: 1035;
+}
+
 .today-time-rail-container {
 	position: sticky;
 	top: 1rem;
@@ -2200,12 +2212,14 @@ body.task-drag-active * {
 }
 
 .today-time-rail.floating {
-	position: absolute;
+	position: fixed;
 	top: 0;
 	right: 0;
-	height: calc(100vh - 2rem);
-	z-index: 1000;
-	box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4);
+	height: 100vh;
+	padding: 1rem;
+	border-radius: 1.1rem 0 0 1.1rem;
+	z-index: 1040;
+	box-shadow: -14px 0 44px rgba(0, 0, 0, 0.5);
 }
 
 .today-time-rail.pinned {
@@ -2223,7 +2237,7 @@ body.task-drag-active * {
 	box-shadow: none;
 	border-color: rgba(129, 181, 255, 0.05);
 	background: rgb(8, 19, 34);
-	transform: translateX(27rem);
+	transform: translateX(110%);
 	opacity: 0;
 	pointer-events: none;
 }
@@ -3248,30 +3262,22 @@ body.task-drag-active * {
 		flex-direction: column;
 	}
 
-	.today-time-rail-container,
-	.today-time-rail-container.pinned {
-		position: static;
-		width: 100%;
-		height: auto;
+	/* Keep the mode schedule as an off-canvas drawer on smaller screens. */
+	.today-time-rail.floating,
+	.today-time-rail.pinned {
+		width: 100vw;
+		max-width: 100vw;
+		border-radius: 0;
 	}
 
-	.today-time-rail,
-	.today-time-rail.collapsed {
-		position: static;
-		width: 100%;
-		min-height: 0;
+	.today-time-rail.pinned {
+		position: fixed;
+		top: 0;
+		right: 0;
+		height: 100vh;
 		padding: 1rem;
-		box-shadow: none;
-	}
-
-	.today-time-rail-toggle {
-		display: none;
-	}
-
-	.today-time-rail.collapsed .today-time-rail-content {
-		opacity: 1;
-		transform: none;
-		pointer-events: auto;
+		z-index: 1040;
+		box-shadow: -14px 0 44px rgba(0, 0, 0, 0.5);
 	}
 
 	.today-time-calendar {

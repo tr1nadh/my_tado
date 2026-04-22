@@ -3,7 +3,6 @@
 	import InboxPanel from '$lib/components/InboxPanel.svelte';
 	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import TaskRow from '$lib/components/TaskRow.svelte';
-	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import UpcomingPanel from '$lib/components/UpcomingPanel.svelte';
 	import ZenProgress from '$lib/components/ZenProgress.svelte';
 	import {
@@ -38,6 +37,7 @@
 	  updateSettings,
 	  USER_DAY_START_HOUR
 	} from '$lib/tasks';
+	import { toast } from '$lib/toast';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -69,10 +69,19 @@
 	let focusHoldConsumed = false;
 	let todayRailOpen = false;
 	let activeIslandTab = 'Today';
+	let islandLockToastAt = 0;
 	let timelineGrid;
 	let lastAutoSwitchedBlockId = null;
 	let modeBlockInterval;
 	let timelineUpdateInterval;
+
+	// Treat the floating time-block rail as an off-canvas drawer (locks background scroll while open).
+	$: if (browser) {
+		document.body.classList.toggle(
+			'karya-offcanvas-open',
+			todayRailOpen && !$settings.todayRailPinned
+		);
+	}
 
 	// Pre-calculate timeline hours once to avoid expensive re-renders
 	const hourFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: true });
@@ -299,11 +308,19 @@
 	}
 
 	function toggleUpcomingRail() {
+		if (activeModeTimeBlock) {
+			toast.show('Auto schedule is active. Stay on Today.', 'lock');
+			return;
+		}
 		activeIslandTab = 'Upcoming';
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	function toggleInboxRail() {
+		if (activeModeTimeBlock) {
+			toast.show('Auto schedule is active. Stay on Today.', 'lock');
+			return;
+		}
 		activeIslandTab = 'All';
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -494,6 +511,7 @@
 		: $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: backlogTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && !isToday(task.dueDate) && !isOverdue(task.dueDate));
+	$: backlogActiveTasks = backlogTasks.filter((task) => !task.paused);
 	
 	$: searchPoolTasks = [...scopedTasks, ...backlogTasks];
 	$: modalSearchedTasks = searchPoolTasks.filter((task) => {
@@ -541,13 +559,16 @@
 		focusPauseReasonDraft = activeFocusTask?.pauseReason || '';
 	}
 	$: completedTasks = sortByTodayStar(scopedTasks.filter((task) => task.done));
+	$: completedTodayTasks = completedTasks.filter((task) => isToday(task.dueDate));
 	$: actionCount = actionDraft
 		.split('\n')
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = taskViewMode === 'active' && pausedActions.length > 0 && (!pausedSection || !pausedVisible);
-	$: todayTotalCount = scopedTasks.length;
-	$: todayDoneCount = completedTasks.length;
+	// ZenProgress is completion % for due-now actions (today + overdue), excluding paused.
+	$: activeNotPausedCount = overdueActiveActions.length + todayActiveActions.length;
+	$: todayDoneCount = completedTodayTasks.length;
+	$: todayTotalCount = activeNotPausedCount + todayDoneCount;
 	$: todayModeSummaryMap = allTodayScopedTasks.reduce((summary, task) => {
 		const current = summary.get(task.mode) || { mode: task.mode, count: 0, overdueCount: 0 };
 		current.count += 1;
@@ -577,6 +598,14 @@
 		todayDate;
 		return getActiveModeTimeBlock($settings, new Date());
 	})();
+	$: if (activeModeTimeBlock && activeIslandTab !== 'Today') {
+		activeIslandTab = 'Today';
+		const now = Date.now();
+		if (now - islandLockToastAt > 2000) {
+			islandLockToastAt = now;
+			toast.show('Auto schedule is active. Locked to Today view.', 'lock');
+		}
+	}
 	
 	// Use state-based current minutes that update every minute via timer
 	let currentTimelineMinutes = (() => {
@@ -907,6 +936,11 @@
 				openSearch();
 			}
 			if (event.key === 'Escape') {
+				if (todayRailOpen && !$settings.todayRailPinned) {
+					event.preventDefault();
+					closeTodayRail();
+					return;
+				}
 				event.preventDefault();
 				if (focusPauseModalOpen) {
 					focusPauseModalOpen = false;
@@ -940,6 +974,7 @@
 		clearFocusHold(true);
 		stopTimeBlockResize();
 		stopTimeBlockDrag();
+		if (browser) document.body.classList.remove('karya-offcanvas-open');
 	});
 </script>
 
@@ -1020,12 +1055,12 @@
 				onclick={() => { taskViewMode = 'completed'; panelDirection = 1; }}
 				style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
 			>
-				Completed {#if completedTasks.length > 0}<span style="opacity: 0.6;">({completedTasks.length})</span>{/if}
+				Completed {#if completedTodayTasks.length > 0}<span style="opacity: 0.6;">({completedTodayTasks.length})</span>{/if}
 			</button>
 		</div>
 
 		{#if taskViewMode === 'completed'}
-			{#if completedTasks.length}
+			{#if completedTodayTasks.length}
 				<section
 					class="mb-4"
 					in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
@@ -1033,7 +1068,7 @@
 				>
 					<div class="list-heading">Completed Actions</div>
 						<div class="task-list">
-							{#each completedTasks as task (task.id)}
+							{#each completedTodayTasks as task (task.id)}
 								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
 									<TaskRow
 										{task}
@@ -1220,7 +1255,7 @@
 		{/if}
 			</section>
 		{:else if activeIslandTab === 'All'}
-			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
+			<section class="glass-panel rounded-4 p-0 fade-up overflow-hidden" style="flex-grow: 1;">
 				<InboxPanel open={true} isMainView={true} />
 			</section>
 		{:else if activeIslandTab === 'Upcoming'}
@@ -1228,9 +1263,21 @@
 				<UpcomingPanel open={true} isMainView={true} />
 			</section>
 		{/if}
+
+		{#if todayRailOpen && !$settings.todayRailPinned}
+			<div
+				class="today-time-rail-backdrop"
+				aria-hidden="true"
+				onclick={closeTodayRail}
+			></div>
+		{/if}
 		<aside
 			class={`today-time-rail ${todayRailOpen || $settings.todayRailPinned ? 'open' : 'collapsed'} ${$settings.todayRailPinned ? 'pinned' : 'floating'}`}
 			aria-label="Today time blocks"
+			role="dialog"
+			aria-modal={todayRailOpen && !$settings.todayRailPinned}
+			aria-hidden={!(todayRailOpen || $settings.todayRailPinned)}
+			tabindex="-1"
 		>
 				<div class="today-time-rail-content">
 					<div class="today-time-rail-head align-items-center pb-2 mb-3 border-bottom border-light border-opacity-10">
@@ -1255,7 +1302,7 @@
 								type="button"
 								aria-label="Close mode blocks"
 								title="Close"
-								onclick={() => (todayRailOpen = false)}
+								onclick={closeTodayRail}
 							>
 								<i class="fa-solid fa-xmark"></i>
 							</button>
@@ -1682,8 +1729,6 @@
 		<span class="island-label">Upcoming</span>
 	</button>
 </nav>
-
-<ToastContainer />
 
 <style>
 	/* Tab button styling */

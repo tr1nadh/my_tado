@@ -3,13 +3,16 @@
 	export let total = 0;
 	export let size = 42;
 	export let strokeWidth = 4;
+	export let invert = false;
 
-	$: progress = total > 0 ? Math.min(Math.max(completed / total, 0), 1) : 0;
+	$: rawRatio = total > 0 ? Math.min(Math.max(completed / total, 0), 1) : 0;
+	$: progress = invert ? 1 - rawRatio : rawRatio;
 	$: radius = (size - strokeWidth) / 2;
 	$: circumference = radius * 2 * Math.PI;
 	$: offset = circumference - progress * circumference;
 
-	// Premium Emerald color
+	$: trackColor = 'rgba(129, 181, 255, 0.18)';
+	$: remainingColor = 'rgba(45, 127, 249, 0.62)';
 	$: color = progress >= 1 ? '#10b981' : '#34d399';
 	
 	$: displayPercent = Math.round(progress * 100);
@@ -23,10 +26,25 @@
 			cy={size / 2}
 			r={radius}
 			fill="none"
-			stroke="currentColor"
+			stroke={trackColor}
 			stroke-width={strokeWidth}
 			class="zen-bg-track"
 		/>
+
+		<!-- Remaining ring keeps the control visible at 0% -->
+		{#if total > 0 && progress < 1}
+			<circle
+				cx={size / 2}
+				cy={size / 2}
+				r={radius}
+				fill="none"
+				stroke={remainingColor}
+				stroke-width={strokeWidth}
+				stroke-linecap="round"
+				transform="rotate(-90 {size / 2} {size / 2})"
+				class="zen-remaining-ring"
+			/>
+		{/if}
 		
 		<!-- Progress Arc -->
 		{#if progress > 0}
@@ -54,7 +72,7 @@
 			class="zen-percent-text"
 			style="font-size: {size * 0.28}px;"
 		>
-			{displayPercent}<tspan style="font-size: 0.6em; opacity: 0.8; margin-left: 1px;">%</tspan>
+			{displayPercent}<tspan style="font-size: 0.6em; opacity: 0.85; margin-left: 1px;">%</tspan>
 		</text>
 	</svg>
 </div>
@@ -74,13 +92,11 @@
 	}
 
 	.zen-bg-track {
-		opacity: 0.15;
-		color: var(--text-muted, rgba(129, 181, 255, 0.2));
+		opacity: 1;
 	}
 
 	.zen-percent-text {
-		fill: currentColor;
-		opacity: 0.7;
+		fill: rgba(236, 244, 255, 0.82);
 		font-weight: 600;
 		font-family: inherit;
 		letter-spacing: -0.02em;
@@ -90,4 +106,9 @@
 	.zen-progress-arc {
 		/* Clean flat look, no filters */
 	}
+
+	.zen-remaining-ring {
+		opacity: 0.85;
+	}
+
 </style>
