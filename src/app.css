@@ -3710,52 +3710,6 @@ body.task-drag-active * {
 	}
 }
 
-.today-subtle-selector-shell {
-	position: relative;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	min-height: 2.2rem;
-	margin-bottom: 0.5rem;
-	z-index: 150;
-}
-.today-subtle-mode-display {
-	position: absolute;
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	padding: 0.4rem 0.8rem;
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.02);
-	border: 1px solid rgba(129, 181, 255, 0.08);
-	color: var(--muted);
-	font-size: 0.85rem;
-	font-weight: 600;
-	cursor: pointer;
-	transition: all 200ms ease;
-    z-index: 10;
-}
-.today-subtle-selector-shell.open .today-subtle-mode-display {
-	opacity: 0;
-	transform: scale(0.95);
-	pointer-events: none;
-}
-.today-subtle-modes-dropdown {
-	display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-	gap: 0.45rem;
-	opacity: 0;
-	pointer-events: none;
-	transform: translateY(-4px) scale(0.96);
-	transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.today-subtle-selector-shell.open .today-subtle-modes-dropdown {
-	opacity: 1;
-	pointer-events: auto;
-	transform: translateY(0) scale(1);
-    transition-delay: 80ms;
-}
 /* Settings Tabs & Nav */
 .settings-tabs-shell {
 	border-bottom: 1px solid rgba(255, 255, 255, 0.05);

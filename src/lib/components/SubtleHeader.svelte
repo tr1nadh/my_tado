@@ -9,6 +9,18 @@
 	let modeDropdownOpen = $state(false);
 	let modeDropdownTimer;
 
+	function openModeDropdown() {
+		if (modeDropdownTimer) clearTimeout(modeDropdownTimer);
+		modeDropdownOpen = true;
+	}
+
+	function closeModeDropdownSoon() {
+		if (modeDropdownTimer) clearTimeout(modeDropdownTimer);
+		modeDropdownTimer = setTimeout(() => {
+			modeDropdownOpen = false;
+		}, 180);
+	}
+
 	function formatTimeLabel(timeStr) {
 		if (!timeStr) return '';
 		const [h, m] = timeStr.split(':');
@@ -20,20 +32,17 @@
 </script>
 
 <div class="subtle-header-row">
-	<div 
-		class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}" 
-		onmouseenter={() => { 
-			if (modeDropdownTimer) clearTimeout(modeDropdownTimer); 
-		}}
-		onmouseleave={() => { 
-			modeDropdownTimer = setTimeout(() => modeDropdownOpen = false, 300); 
-		}}
+	<div
+		class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}"
+		role="presentation"
+		onmouseenter={openModeDropdown}
+		onmouseleave={closeModeDropdownSoon}
 	>
 		<button 
 			class="today-subtle-mode-display {activeModeTimeBlock ? 'active' : ''}" 
 			type="button"
+			aria-expanded={modeDropdownOpen}
 			style={activeModeTimeBlock ? `--mode-color: ${modeColorMap[activeModeTimeBlock.mode] || modeColorMap.Default};` : ''}
-			onmouseenter={() => (modeDropdownOpen = true)}
 			onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
 		>
 			<div class="today-subtle-mode-icon-shell">
@@ -56,7 +65,12 @@
 			<i class="fa-solid fa-chevron-down ms-1" style="font-size: 0.75em; opacity: 0.6; margin-top: 2px;"></i>
 		</button>
 
-		<div class="today-subtle-modes-dropdown {$settings.modeTimeBlocksEnabled ? 'locked' : ''}">
+		<div
+			class="today-subtle-modes-dropdown {$settings.modeTimeBlocksEnabled ? 'locked' : ''}"
+			role="presentation"
+			onmouseenter={openModeDropdown}
+			onmouseleave={closeModeDropdownSoon}
+		>
 			{#each $modes.filter(m => m !== $activeMode) as mode}
 				<button 
 					class="mode-pill" 
@@ -115,6 +129,15 @@
 		z-index: 101;
 	}
 
+	.today-subtle-selector-shell::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 100%;
+		height: 0.5rem;
+	}
+
 	.today-subtle-mode-display {
 		display: flex;
 		align-items: center;
@@ -139,6 +162,13 @@
 
 	.today-subtle-mode-display.active {
 		border-color: rgba(255, 255, 255, 0.15);
+	}
+
+	/* Keep trigger visible even while dropdown is open. */
+	.today-subtle-selector-shell.open .today-subtle-mode-display {
+		opacity: 1;
+		transform: none;
+		pointer-events: auto;
 	}
 
 	.today-subtle-mode-display.active .today-subtle-mode-label {
@@ -195,7 +225,7 @@
 
 	.today-subtle-modes-dropdown {
 		position: absolute;
-		top: calc(100% + 0.5rem);
+		top: calc(100% + 0.1rem);
 		left: 0;
 		min-width: 180px;
 		background: rgba(15, 30, 55, 0.95);
@@ -238,7 +268,7 @@
 		text-align: left;
 	}
 
-	.mode-pill:hover:not(.locked .mode-pill) {
+	.today-subtle-modes-dropdown:not(.locked) .mode-pill:hover {
 		background: rgba(255, 255, 255, 0.06);
 		color: #fff;
 	}
