@@ -296,15 +296,15 @@ body {
 }
 
 .badge-soft {
-	background: #1e293b;
-	border: 1px solid #334155;
+	background: var(--panel-strong);
+	border: 1px solid var(--line);
 	color: #ffedd5;
 }
 
 .badge-signal {
 	background: rgba(251, 191, 36, 0.08);
 	border: 1px solid rgba(251, 191, 36, 0.14);
-	color: #fef3c7;
+	color: var(--cyan);
 }
 
 .floating-glow {
@@ -459,7 +459,7 @@ body {
 }
 
 .mode-pill-menu-button.danger {
-	color: #ffd5db;
+	color: #fca5a5;
 }
 
 .mode-actions-sheet {
@@ -517,7 +517,7 @@ body {
 .mode-picker-button.active {
 	background: var(--blue);
 	border-color: var(--amber);
-	color: #ffffff;
+	color: var(--text-light);
 }
 
 .dense-row {
@@ -695,8 +695,8 @@ body {
 	padding: 0.45rem 0.7rem;
 	border-radius: 999px;
 	background: rgba(245, 158, 11, 0.1);
-	border: 1px solid rgba(89, 213, 255, 0.12);
-	color: #fffbeb;
+	border: 1px solid rgba(245, 158, 11, 0.12);
+	color: var(--cyan);
 	font-size: 0.82rem;
 	font-weight: 700;
 }
@@ -819,7 +819,7 @@ body {
 	margin-bottom: 0.8rem;
 	border-radius: 0.8rem;
 	background: rgba(245, 158, 11, 0.14);
-	color: #ffedd5;
+	color: var(--cyan);
 }
 
 .home-steps-grid {
@@ -837,7 +837,7 @@ body {
 	font-size: 1.6rem;
 	font-weight: 800;
 	letter-spacing: -0.04em;
-	color: #fed7aa;
+	color: var(--cyan);
 }
 
 .home-route-title {
@@ -961,7 +961,7 @@ body {
 }
 
 .mode-manager-title i {
-	color: #fde68a;
+	color: var(--cyan);
 }
 
 .mode-editor-modal {
@@ -1138,15 +1138,15 @@ body {
 }
 
 .today-star-settings-icon.red {
-	color: #ff8c8c;
+	color: #fca5a5;
 }
 
 .today-star-settings-icon.blue {
-	color: #7dc2ff;
+	color: var(--cyan);
 }
 
 .today-star-settings-icon.yellow {
-	color: #ffd36b;
+	color: var(--cyan);
 }
 
 .today-star-settings-icon.none {
@@ -1155,7 +1155,7 @@ body {
 
 .today-star-settings-heading {
 	font-weight: 600;
-	color: #f4f8ff;
+	color: var(--text-light);
 	margin-bottom: 0.05rem;
 }
 
@@ -1440,7 +1440,7 @@ body {
 	padding-inline: 0.35rem;
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.08);
-	color: #fffbeb;
+	color: var(--cyan);
 	font-size: 0.75rem;
 	font-weight: 700;
 }
@@ -1518,7 +1518,7 @@ body {
 .paused-reason {
 	font-size: 0.92rem;
 	line-height: 1.7;
-	color: #f2e6bf;
+	color: var(--text);
 	font-family: 'Manrope', sans-serif;
 }
 
@@ -1534,13 +1534,13 @@ body {
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: #fde68a;
+	color: var(--cyan);
 	font-size: 0.8rem;
 	font-weight: 600;
 }
 
 .task-inline-link:hover {
-	color: #fef9c3;
+	color: var(--cyan);
 	text-decoration: underline;
 }
 
@@ -1611,25 +1611,25 @@ body {
 	border-radius: 999px;
 	font-size: 0.78rem;
 	background: rgba(255, 255, 255, 0.05);
-	color: #f4f8ff;
+	color: var(--text-light);
 }
 
 .task-star-trigger.red,
 .task-star-note.red {
 	background: rgba(199, 52, 52, 0.16);
-	color: #ffd4d4;
+	color: #fca5a5;
 }
 
 .task-star-trigger.blue,
 .task-star-note.blue {
 	background: rgba(245, 158, 11, 0.15);
-	color: #fff3c7;
+	color: var(--cyan);
 }
 
 .task-star-trigger.yellow,
 .task-star-note.yellow {
 	background: rgba(255, 189, 89, 0.14);
-	color: #ffe8ab;
+	color: var(--cyan);
 }
 
 .task-star-trigger {
@@ -1668,9 +1668,9 @@ body {
 	align-items: center;
 	padding: 0.18rem 0.55rem;
 	border-radius: 999px;
-	border: 1px solid rgba(129, 181, 255, 0.12);
-	background: rgba(129, 181, 255, 0.08);
-	color: #fffbeb;
+	border: 1px solid rgba(245, 158, 11, 0.12);
+	background: rgba(245, 158, 11, 0.08);
+	color: var(--cyan);
 	font-size: 0.76rem;
 	line-height: 1.4;
 }
@@ -1678,9 +1678,9 @@ body {
 .task-tag {
 	padding: 0.12rem 0.45rem;
 	border-radius: 999px;
-	background: #1e293b;
-	border: 1px solid #334155;
-	color: #ffedd5;
+	background: var(--panel-strong);
+	border: 1px solid var(--line);
+	color: var(--cyan);
 	font-size: 0.76rem;
 }
 
@@ -1923,7 +1923,7 @@ body.task-drag-active * {
 }
 
 .task-edit-input::placeholder {
-	color: #6d89ad;
+	color: var(--soft-text);
 }
 
 .empty-state {
@@ -1953,7 +1953,7 @@ body.task-drag-active * {
 .today-focus-flow-title {
 	font-size: 1.05rem;
 	font-weight: 600;
-	color: #f4f8ff;
+	color: var(--text-light);
 }
 
 .today-focus-next-action {
@@ -2046,7 +2046,7 @@ body.task-drag-active * {
 	font-size: clamp(1.4rem, 3vw, 2rem);
 	font-weight: 700;
 	line-height: 1;
-	color: #f4f8ff;
+	color: var(--text-light);
 }
 
 .focus-overlay-stage {
@@ -2116,9 +2116,9 @@ body.task-drag-active * {
 	align-items: center;
 	padding: 0.28rem 0.65rem;
 	border-radius: 999px;
-	border: 1px solid rgba(89, 213, 255, 0.18);
+	border: 1px solid rgba(245, 158, 11, 0.18);
 	background: rgba(251, 191, 36, 0.08);
-	color: #fde68a;
+	color: var(--cyan);
 	font-size: 0.76rem;
 	font-weight: 700;
 	letter-spacing: 0.08em;
@@ -2126,15 +2126,15 @@ body.task-drag-active * {
 }
 
 .focus-mode-badge.overdue {
-	border-color: rgba(255, 184, 77, 0.24);
-	background: rgba(255, 184, 77, 0.12);
-	color: #ffd79a;
+	border-color: rgba(245, 158, 11, 0.24);
+	background: rgba(245, 158, 11, 0.12);
+	color: var(--cyan);
 }
 
 .focus-mode-badge.mode {
-	border-color: rgba(129, 181, 255, 0.16);
-	background: rgba(129, 181, 255, 0.08);
-	color: #fffbeb;
+	border-color: rgba(245, 158, 11, 0.16);
+	background: rgba(245, 158, 11, 0.08);
+	color: var(--cyan);
 }
 
 .actions-panel-shell {
@@ -2518,8 +2518,8 @@ body.karya-offcanvas-open {
 	right: 0;
 	padding: 0.08rem 0.42rem;
 	border-radius: 999px;
-	background: rgba(255, 107, 129, 0.18);
-	color: #ffd4dc;
+	background: rgba(153, 27, 27, 0.18);
+	color: #fca5a5;
 	font-size: 0.68rem;
 	font-weight: 800;
 	letter-spacing: 0.04em;
@@ -2541,8 +2541,8 @@ body.karya-offcanvas-open {
 	padding: 0.35rem 0.65rem;
 	border-radius: 1rem;
 	border: 1px solid var(--line);
-	border-left: 3px solid var(--block-color, rgba(89, 213, 255, 0.4));
-	background: #0c1730;
+	border-left: 3px solid var(--block-color, rgba(245, 158, 11, 0.4));
+	background: var(--bg-deep);
 	box-shadow: none;
 	overflow: hidden;
 	transition: 
@@ -2554,7 +2554,7 @@ body.karya-offcanvas-open {
 
 .today-time-block.selected {
 	border-color: var(--block-color, rgba(245, 158, 11, 0.55));
-	background: #0e1e3c;
+	background: var(--bg-deep);
 	box-shadow: none;
 	transform: scale(1.01);
 	z-index: 10;
@@ -2623,9 +2623,9 @@ body.karya-offcanvas-open {
 	align-items: center;
 	justify-content: center;
 	border-radius: 0.4rem;
-	background: rgba(255, 107, 129, 0.15);
-	border: 1px solid rgba(255, 107, 129, 0.2);
-	color: #ff8c8c;
+	background: rgba(153, 27, 27, 0.15);
+	border: 1px solid rgba(153, 27, 27, 0.2);
+	color: #fca5a5;
 	font-size: 0.75rem;
 	cursor: pointer;
 	z-index: 5;
@@ -2929,7 +2929,7 @@ body.karya-offcanvas-open {
 .view-toggle-button:hover {
 	background: var(--panel);
 	border-color: rgba(245, 158, 11, 0.22);
-	color: #ffffff;
+	color: var(--text-light);
 }
 
 .view-toggle-button::after {
@@ -3128,7 +3128,7 @@ body.karya-offcanvas-open {
 }
 
 .app-love-heart {
-	color: #ff4d6d;
+	color: #ef4444;
 	filter: none;
 }
 
@@ -3829,8 +3829,8 @@ body.karya-offcanvas-open {
 }
 
 .mode-editor-error {
-	background: rgba(239, 68, 68, 0.1);
-	color: #f87171;
+	background: rgba(153, 27, 27, 0.1);
+	color: #ef4444;
 	padding: 0.75rem 1rem;
 	border-radius: 10px;
 	font-size: 0.85rem;

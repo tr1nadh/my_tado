@@ -979,7 +979,7 @@
 
 	.upcoming-title i {
 		font-size: 1rem;
-		color: #f59e0b;
+		color: var(--blue);
 		padding: 0.4rem;
 		border-radius: 0.6rem;
 		background: rgba(180, 83, 9, 0.18);
@@ -1016,9 +1016,9 @@
 	}
 
 	.close-btn:hover {
-		background: rgba(255, 107, 129, 0.2);
-		color: #ff6b81;
-		border-color: rgba(255, 107, 129, 0.45);
+		background: rgba(153, 27, 27, 0.2);
+		color: #ef4444;
+		border-color: rgba(153, 27, 27, 0.45);
 	}
 
 	.range-chip-row {
@@ -1048,7 +1048,7 @@
 	.range-chip.active {
 		background: rgba(180, 83, 9, 0.3);
 		border-color: rgba(245, 158, 11, 0.5);
-		color: #fde68a;
+		color: var(--cyan);
 	}
 
 	.quick-chip-row {
@@ -1083,7 +1083,7 @@
 
 	.quick-chip.active {
 		background: rgba(180, 83, 9, 0.3);
-		color: #fde68a;
+		color: var(--cyan);
 		border-color: rgba(245, 158, 11, 0.5);
 	}
 
@@ -1150,7 +1150,7 @@
 
 	.segment-btn.active {
 		background: rgba(180, 83, 9, 0.3);
-		color: #fde68a;
+		color: var(--cyan);
 	}
 
 	.segment-count {
@@ -1362,9 +1362,9 @@
 
 	.clear-btn {
 		padding: 0.3rem 0.65rem;
-		border: 1px solid rgba(255, 107, 129, 0.3);
-		background: rgba(255, 107, 129, 0.1);
-		color: #ff6b81;
+		border: 1px solid rgba(153, 27, 27, 0.3);
+		background: rgba(153, 27, 27, 0.1);
+		color: #ef4444;
 		border-radius: 0.55rem;
 		font-size: 0.76rem;
 		font-weight: 600;
@@ -1373,7 +1373,7 @@
 	}
 
 	.clear-btn:hover {
-		background: rgba(255, 107, 129, 0.2);
+		background: rgba(153, 27, 27, 0.2);
 	}
 
 	.day-group {

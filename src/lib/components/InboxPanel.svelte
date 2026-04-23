@@ -530,9 +530,9 @@
 	}
 
 	.all-close:hover {
-		border-color: rgba(255, 107, 129, 0.38);
-		background: rgba(255, 107, 129, 0.16);
-		color: #ff6b81;
+		border-color: rgba(153, 27, 27, 0.38);
+		background: rgba(153, 27, 27, 0.16);
+		color: #ef4444;
 	}
 
 	.all-toolbar {
@@ -584,7 +584,7 @@
 
 	.all-tab.active {
 		background: rgba(180, 83, 9, 0.32);
-		color: #fde68a;
+		color: var(--cyan);
 	}
 
 	.all-tab-count {
@@ -618,8 +618,8 @@
 	}
 
 	.all-toggle.danger {
-		border-color: rgba(255, 107, 129, 0.3);
-		color: #ff9aa9;
+		border-color: rgba(153, 27, 27, 0.3);
+		color: #fca5a5;
 	}
 
 	.all-add {
@@ -667,7 +667,7 @@
 		font-weight: 650;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: #d97706;
+		color: var(--amber);
 		margin-bottom: 0.5rem;
 	}
 

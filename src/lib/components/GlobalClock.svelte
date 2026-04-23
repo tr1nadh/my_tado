@@ -74,7 +74,7 @@
 		text-transform: uppercase;
 		opacity: 0.8;
 		letter-spacing: 0.05em;
-		color: var(--blue, #3b82f6);
+		color: var(--blue, #F59E0B);
 	}
 
 	.clock-seconds {

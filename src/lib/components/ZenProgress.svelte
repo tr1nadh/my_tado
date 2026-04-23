@@ -13,7 +13,7 @@
 
 	$: trackColor = 'rgba(252, 211, 77, 0.12)';
 	$: remainingColor = 'rgba(245, 158, 11, 0.42)';
-	$: color = progress >= 1 ? '#10b981' : '#34d399';
+	$: color = progress >= 1 ? '#166534' : '#22c55e';
 	
 	$: displayPercent = Math.round(progress * 100);
 </script>
