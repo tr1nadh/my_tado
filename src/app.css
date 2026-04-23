@@ -1751,6 +1751,39 @@ body {
 	display: inline-flex;
 }
 
+.task-inline-actions-ml-auto {
+	margin-left: auto;
+	display: flex;
+	gap: 0.25rem;
+	align-items: center;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+
+.task-line:hover .task-inline-actions-ml-auto {
+	opacity: 1;
+}
+
+.task-inline-action {
+	width: 1.6rem;
+	height: 1.6rem;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	background: transparent;
+	color: var(--muted);
+	border-radius: 0.4rem;
+	transition: all 0.15s ease;
+	font-size: 0.75rem;
+}
+
+.task-inline-action:hover {
+	color: var(--text);
+	background: rgba(180, 83, 9, 0.15);
+}
+
 .task-inline-submenu {
 	position: absolute;
 	bottom: calc(100% + 0.4rem);

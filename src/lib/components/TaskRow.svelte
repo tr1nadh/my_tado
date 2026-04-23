@@ -557,14 +557,20 @@
 						{:else}
 							<div class={`task-title mt-1 ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						{/if}
-						{#if visibleModeBadge}
-							<div class="task-meta-row mt-1">
+						<div class="task-meta-row mt-1">
+							{#if visibleModeBadge}
 								<div class={`task-mode-meta ${getModeBadgeTone(task.mode)}`} aria-label={`Mode ${task.mode}`}>
 									<i class="fa-solid {getModeIcon(task.mode, $modeIcons)}" aria-hidden="true"></i>
 									<span>{task.mode}</span>
 								</div>
+							{/if}
+							<div class="task-inline-actions-ml-auto">
+								<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
+								<button class="icon-button task-inline-action" type="button" aria-label={`Resume ${task.title}`} onclick={() => resumeTask(task.id)}><i class="fa-solid fa-play"></i></button>
+								<button class="icon-button task-inline-action" type="button" aria-label={`Edit pause reason for ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-comment-dots"></i></button>
+								<button class="icon-button task-inline-action" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
 							</div>
-						{/if}
+						</div>
 					{:else}
 						<div
 							class="d-flex flex-wrap align-items-center gap-2 task-text-line"
@@ -576,21 +582,35 @@
 						>
 							<div class={`task-title ${task.done ? 'text-decoration-line-through soft-text' : ''}`}>{task.title}</div>
 						</div>
-						{#if (task.dueDate && !hideDueDate) || visibleModeBadge}
-							<div class="task-meta-row mt-1">
-								{#if task.dueDate && !hideDueDate}
-									<div class="task-due-note">
-										<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
+						<div class="task-meta-row mt-1">
+							{#if task.dueDate && !hideDueDate}
+								<div class="task-due-note">
+									<i class="fa-regular fa-calendar me-2"></i>{formatDetectedDate(task.dueDate)}
+								</div>
+							{/if}
+							{#if visibleModeBadge}
+								<div class={`task-mode-meta ${getModeBadgeTone(task.mode)}`} aria-label={`Mode ${task.mode}`}>
+									<i class="fa-solid {getModeIcon(task.mode, $modeIcons)}" aria-hidden="true"></i>
+									<span>{task.mode}</span>
+								</div>
+							{/if}
+							<div class="task-inline-actions-ml-auto">
+								{#if task.paused}
+									<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
+									<button class="icon-button task-inline-action" type="button" aria-label={`Resume ${task.title}`} onclick={() => resumeTask(task.id)}><i class="fa-solid fa-play"></i></button>
+									<button class="icon-button task-inline-action" type="button" aria-label={`Edit pause reason for ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-comment-dots"></i></button>
+								{:else}
+									<button class="icon-button task-inline-action" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
+									<button class="icon-button task-inline-action" type="button" aria-label={`Pause ${task.title}`} onclick={pauseNow}><i class="fa-solid fa-pause"></i></button>
+									<div class="task-inline-action-group" role="presentation">
+										<button class="icon-button task-inline-action" type="button" aria-label={`Set due date for ${task.title}`} onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}><i class="fa-regular fa-calendar"></i></button>
 									</div>
+									<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
+									<button class="icon-button task-inline-action" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
 								{/if}
-								{#if visibleModeBadge}
-									<div class={`task-mode-meta ${getModeBadgeTone(task.mode)}`} aria-label={`Mode ${task.mode}`}>
-										<i class="fa-solid {getModeIcon(task.mode, $modeIcons)}" aria-hidden="true"></i>
-										<span>{task.mode}</span>
-									</div>
-								{/if}
+								<button class="icon-button task-inline-action" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
 							</div>
-						{/if}
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -629,54 +649,6 @@
 		</div>
 	{/if}
 
-	<div
-		class={`row-actions task-inline-actions d-flex gap-1 ${actionsOpen ? 'visible' : ''}`}
-		role="presentation"
-		onmouseenter={closeStarMenu}
-	>
-		{#if task.paused}
-			<button
-				class="icon-button"
-				type="button"
-				aria-label={`Change mode for ${task.title}`}
-				onclick={() => (modePickerOpen = true)}
-			><i class="fa-solid fa-layer-group"></i></button>
-			<button
-				class="icon-button"
-				type="button"
-				aria-label={`Resume ${task.title}`}
-				onclick={() => resumeTask(task.id)}
-			>
-				<i class="fa-solid fa-play"></i>
-			</button>
-			<button class="icon-button" type="button" aria-label={`Edit pause reason for ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-comment-dots"></i></button>
-		{:else}
-			<button class="icon-button" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
-			<button class="icon-button" type="button" aria-label={`Pause ${task.title}`} onclick={pauseNow}><i class="fa-solid fa-pause"></i></button>
-			<div
-				class="task-inline-action-group"
-				role="presentation"
-				onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
-				onmouseleave={() => scheduleDueDateMenuClose()}
-			>
-				<button
-					bind:this={dueDateButtonElement}
-					class="icon-button"
-					type="button"
-					aria-label={`Set due date for ${task.title}`}
-					onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}
-				><i class="fa-regular fa-calendar"></i></button>
-			</div>
-			<button
-				class="icon-button"
-				type="button"
-				aria-label={`Change mode for ${task.title}`}
-				onclick={() => (modePickerOpen = true)}
-			><i class="fa-solid fa-layer-group"></i></button>
-			<button class="icon-button" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
-		{/if}
-		<button class="icon-button" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
-	</div>
 </div>
 
 {#if dueDateMenuOpen}
