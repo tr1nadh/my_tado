@@ -42,7 +42,6 @@
 	let customStart = '';
 	let customEnd = '';
 	let customRangeModalOpen = false;
-	let scopeMenuOpen = false;
 	let filterSheetOpen = false;
 	let isMobile = false;
 	let collapsedGroups = new Set();
@@ -144,7 +143,6 @@
 		dateScope = 'next7';
 		search = '';
 		showDone = false;
-		scopeMenuOpen = false;
 		filterSheetOpen = false;
 	}
 
@@ -321,33 +319,6 @@
 		showDone = false;
 	}
 
-	function toggleScopeMenu() {
-		if (isMobile) {
-			openFilterSheet();
-			return;
-		}
-		scopeMenuOpen = !scopeMenuOpen;
-	}
-
-	function closeScopeMenu() {
-		scopeMenuOpen = false;
-	}
-
-	function openCustomRangePicker() {
-		ensureCustomRangeDefaults();
-		customRangeModalOpen = true;
-		closeScopeMenu();
-	}
-
-	function selectDateScope(scope) {
-		if (scope === 'custom') {
-			openCustomRangePicker();
-			return;
-		}
-		dateScope = scope;
-		closeScopeMenu();
-	}
-
 	function toggleGroup(key) {
 		const next = new Set(collapsedGroups);
 		if (next.has(key)) next.delete(key);
@@ -387,8 +358,35 @@
 		filterSheetOpen = false;
 	}
 
+	function applySheetFilters() {
+		if (sheetScope === 'custom') {
+			applySheetCustomRange();
+		} else {
+			dateScope = sheetScope;
+			filterSheetOpen = false;
+		}
+	}
+
 	function jumpToPaused() {
 		pausedSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	function portal(node) {
+		if (typeof document === 'undefined') {
+			return {
+				destroy() {}
+			};
+		}
+
+		document.body.appendChild(node);
+		document.body.classList.add('karya-offcanvas-open');
+
+		return {
+			destroy() {
+				node.remove();
+				document.body.classList.remove('karya-offcanvas-open');
+			}
+		};
 	}
 
 	onMount(() => {
@@ -398,21 +396,9 @@
 			mql = window.matchMedia('(max-width: 767px)');
 			updateMql = () => {
 				isMobile = mql.matches;
-				if (isMobile) scopeMenuOpen = false;
-				else filterSheetOpen = false;
 			};
 			updateMql();
 			mql.addEventListener('change', updateMql);
-		}
-
-		function handlePointerDown(event) {
-			if (!scopeMenuOpen) return;
-			const target = event.target;
-			if (!(target instanceof Node)) return;
-			const menu = document.querySelector('.upcoming-scope-menu');
-			const button = document.querySelector('.upcoming-scope-button');
-			if (menu?.contains(target) || button?.contains(target)) return;
-			closeScopeMenu();
 		}
 
 		function handleKeydown(event) {
@@ -439,7 +425,6 @@
 				event.preventDefault();
 				if (customRangeModalOpen) customRangeModalOpen = false;
 				if (filterSheetOpen) filterSheetOpen = false;
-				if (scopeMenuOpen) scopeMenuOpen = false;
 				if (searchOpen) closeSearch();
 			}
 		}
@@ -523,29 +508,13 @@
 					<button
 						class="toolbar-button-lite upcoming-scope-button"
 						type="button"
-						aria-haspopup="menu"
-						aria-expanded={scopeMenuOpen}
-						onclick={toggleScopeMenu}
+						aria-haspopup="dialog"
+						aria-expanded={filterSheetOpen}
+						onclick={openFilterSheet}
 					>
 						<i class="fa-solid fa-sliders" aria-hidden="true"></i>
 						<span class="scope-label">{getScopeButtonLabel()}</span>
 					</button>
-
-					{#if scopeMenuOpen && !isMobile}
-						<div class="upcoming-scope-menu" role="menu" aria-label="Date scope">
-							{#each dateScopeOptions as option}
-								<button
-									type="button"
-									class={`scope-menu-item ${dateScope === option.value ? 'active' : ''}`}
-									role="menuitem"
-									onclick={() => selectDateScope(option.value)}
-								>
-									<span>{option.label}</span>
-									<span class="scope-menu-count">{scopeCounts[option.value] || 0}</span>
-								</button>
-							{/each}
-						</div>
-					{/if}
 				</div>
 
 				<button class="toolbar-button-lite" type="button" onclick={resetUpcomingFilters}>Reset</button>
@@ -672,6 +641,7 @@
 
 {#if filterSheetOpen}
 	<div
+		use:portal
 		class="upcoming-filter-sheet-backdrop"
 		role="button"
 		tabindex="0"
@@ -699,52 +669,50 @@
 				</button>
 			</div>
 
-			<div class="sheet-section-title">Date scope</div>
-			<div class="sheet-options">
-				{#each dateScopeOptions as option}
-					<button
-						type="button"
-						class={`sheet-option ${sheetScope === option.value ? 'active' : ''}`}
-						onclick={() => {
-							if (option.value === 'custom') {
-								sheetScope = 'custom';
-								ensureCustomRangeDefaults();
-								sheetCustomStart = customStart;
-								sheetCustomEnd = customEnd;
-								return;
-							}
-							dateScope = option.value;
-							filterSheetOpen = false;
-						}}
-					>
-						<span>{option.label}</span>
-						<span class="sheet-count">{scopeCounts[option.value] || 0}</span>
-					</button>
-				{/each}
-			</div>
-
-			{#if sheetScope === 'custom'}
-				<div class="sheet-custom-range">
-					<div class="sheet-section-title">Custom range</div>
-					<div class="custom-range-grid">
-						<label class="settings-number-field">
-							<span>Start</span>
-							<input class="form-control" type="date" bind:value={sheetCustomStart} />
-						</label>
-						<label class="settings-number-field">
-							<span>End</span>
-							<input class="form-control" type="date" bind:value={sheetCustomEnd} />
-						</label>
-					</div>
-					<div class="d-flex justify-content-end gap-2 mt-3">
-						<button class="toolbar-button" type="button" onclick={() => (filterSheetOpen = false)}>Cancel</button>
-						<button class="toolbar-button active" type="button" onclick={applySheetCustomRange}>Apply range</button>
-					</div>
+			<div class="sheet-content">
+				<div class="sheet-section-title">Date scope</div>
+				<div class="sheet-options">
+					{#each dateScopeOptions as option}
+						<button
+							type="button"
+							class={`sheet-option ${sheetScope === option.value ? 'active' : ''}`}
+							onclick={() => {
+								if (option.value === 'custom') {
+									sheetScope = 'custom';
+									ensureCustomRangeDefaults();
+									sheetCustomStart = customStart;
+									sheetCustomEnd = customEnd;
+								} else {
+									sheetScope = option.value;
+								}
+							}}
+						>
+							<span>{option.label}</span>
+							<span class="sheet-count">{scopeCounts[option.value] || 0}</span>
+						</button>
+					{/each}
 				</div>
-			{/if}
+
+				{#if sheetScope === 'custom'}
+					<div class="sheet-custom-range">
+						<div class="sheet-section-title">Custom range</div>
+						<div class="custom-range-grid">
+							<label class="settings-number-field">
+								<span>Start</span>
+								<input class="form-control" type="date" bind:value={sheetCustomStart} />
+							</label>
+							<label class="settings-number-field">
+								<span>End</span>
+								<input class="form-control" type="date" bind:value={sheetCustomEnd} />
+							</label>
+						</div>
+					</div>
+				{/if}
+			</div>
 
 			<div class="sheet-footer">
 				<button class="toolbar-button-lite" type="button" onclick={resetUpcomingFilters}>Reset</button>
+				<button class="toolbar-button active" type="button" onclick={applySheetFilters}>Apply</button>
 			</div>
 		</div>
 	</div>
@@ -1370,22 +1338,32 @@
 		position: fixed;
 		inset: 0;
 		background: rgba(0, 0, 0, 0.55);
-		z-index: 1350;
+		z-index: 9999;
 		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding: 0.85rem 0.85rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+		align-items: stretch;
+		justify-content: flex-end;
 	}
 
 	.upcoming-filter-sheet {
 		width: min(34rem, 100%);
-		max-height: min(82vh, 46rem);
-		overflow: auto;
-		border-radius: 1.2rem;
-		border: 1px solid var(--line-strong);
+		max-width: 100%;
+		height: 100%;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		border-left: 1px solid var(--line-strong);
 		background: var(--panel-solid);
-		box-shadow: 0 -28px 70px rgba(0, 0, 0, 0.5);
-		padding: 1rem;
+		box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4);
+		animation: slideIn 0.3s ease-out;
+	}
+
+	@keyframes slideIn {
+		from {
+			transform: translateX(100%);
+		}
+		to {
+			transform: translateX(0);
+		}
 	}
 
 	.sheet-head {
@@ -1393,7 +1371,8 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 0.75rem;
-		margin-bottom: 0.8rem;
+		padding: 1.25rem 1.25rem 0.5rem;
+		flex-shrink: 0;
 	}
 
 	.sheet-title {
@@ -1411,6 +1390,12 @@
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.sheet-content {
+		flex: 1;
+		overflow-y: auto;
+		padding: 0 1.25rem;
 	}
 
 	.sheet-options {
@@ -1451,8 +1436,12 @@
 
 	.sheet-footer {
 		display: flex;
-		justify-content: flex-end;
-		margin-top: 0.9rem;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem 1.25rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		background: var(--panel-solid);
+		flex-shrink: 0;
 	}
 
 	/* Responsive Design */
