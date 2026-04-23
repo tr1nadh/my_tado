@@ -802,6 +802,7 @@
 <style>
 	.upcoming-redesign {
 		height: 100%;
+		min-height: 600px;
 		display: flex;
 		flex-direction: column;
 		background:

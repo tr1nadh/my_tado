@@ -1188,7 +1188,7 @@
 		/>
 
 		{#if activeIslandTab === 'Today'}
-			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
+			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1; min-height: 600px;">
 				<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 					<div class="d-flex align-items-center gap-3">
 						<div class="d-flex align-items-baseline gap-2">
@@ -1459,12 +1459,12 @@
 			</section>
 		{/if}
 		{#if activeIslandTab === 'All'}
-			<section class="fade-up" style="flex-grow: 1;">
+			<section class="fade-up" style="flex-grow: 1; min-height: 600px;">
 				<InboxPanel open={true} isMainView={true} actionModalOpen={allActionModalOpen} actionDraft={allActionDraft} actionInput={allActionInput} actionDismissedPhrases={allActionDismissedPhrases} openActionModal={openAllActionModal} closeActionModal={closeAllActionModal} submitActions={submitAllActions} handleActionDraftInput={syncAllActionDateDismissed} />
 			</section>
 		{/if}
 		{#if activeIslandTab === 'Upcoming'}
-			<section class="glass-panel rounded-4 p-0 fade-up" style="flex-grow: 1; overflow: visible;">
+			<section class="glass-panel rounded-4 p-0 fade-up" style="flex-grow: 1; min-height: 600px; overflow: visible;">
 				<UpcomingPanel open={true} isMainView={true} actionModalOpen={upcomingActionModalOpen} actionDraft={upcomingActionDraft} actionInput={upcomingActionInput} actionDismissedPhrases={upcomingActionDismissedPhrases} openActionModal={openUpcomingActionModal} closeActionModal={closeUpcomingActionModal} submitActions={submitUpcomingActions} handleActionDraftInput={syncUpcomingActionDateDismissed} />
 			</section>
 		{/if}
