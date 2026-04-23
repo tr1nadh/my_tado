@@ -11,8 +11,8 @@
 	$: circumference = radius * 2 * Math.PI;
 	$: offset = circumference - progress * circumference;
 
-	$: trackColor = 'rgba(129, 181, 255, 0.18)';
-	$: remainingColor = 'rgba(45, 127, 249, 0.62)';
+	$: trackColor = 'rgba(252, 211, 77, 0.12)';
+	$: remainingColor = 'rgba(245, 158, 11, 0.42)';
 	$: color = progress >= 1 ? '#10b981' : '#34d399';
 	
 	$: displayPercent = Math.round(progress * 100);

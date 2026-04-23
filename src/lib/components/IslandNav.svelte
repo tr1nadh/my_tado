@@ -86,12 +86,10 @@
 		width: min(34rem, calc(100vw - 1.1rem));
 		padding: 0.5rem 0.64rem;
 		gap: 0.36rem;
-		background: var(--panel-solid);
+		background: var(--panel);
 		border-radius: 999px;
-		border: 1px solid var(--line-strong);
-		box-shadow:
-			0 14px 30px rgba(0, 0, 0, 0.33),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		border: 1px solid var(--line);
+		box-shadow: var(--shadow);
 		z-index: 1025;
 		overflow: hidden;
 	}
@@ -127,7 +125,7 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		background: rgba(255, 255, 255, 0.04);
+		background: var(--surface-light);
 		opacity: 0;
 		transition: opacity 0.2s ease;
 		pointer-events: none;
@@ -140,20 +138,16 @@
 
 	.island-tab:hover:not(:disabled) {
 		color: var(--text);
-		background: rgba(79, 70, 229, 0.14);
+		background: var(--panel-strong);
 		border-color: var(--line-strong);
 		transform: translateY(-1px);
 	}
 
 	.island-tab.active {
-		color: var(--text);
-		background:
-			linear-gradient(145deg, rgba(79, 70, 229, 0.32), rgba(67, 56, 202, 0.18)),
-			rgba(79, 70, 229, 0.16);
-		border-color: rgba(245, 158, 11, 0.42);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.16),
-			0 6px 14px rgba(17, 24, 39, 0.3);
+		color: #FFFFFF;
+		background: var(--amber);
+		border-color: var(--gold);
+		box-shadow: var(--shadow-soft);
 	}
 
 	.island-tab:hover:not(:disabled)::before,
@@ -195,6 +189,10 @@
 
 		.island-label {
 			display: none;
+		}
+
+		.island-tab.active .island-label {
+			display: inline;
 		}
 
 		.island-icon {

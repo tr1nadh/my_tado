@@ -1710,7 +1710,7 @@
 
 	:global(.tab-button.active) {
 		opacity: 1;
-		border-bottom-color: var(--blue) !important;
+		color: var(--amber) !important; border-bottom-color: var(--amber) !important;
 	}
 
 	:global(.right-dock) {

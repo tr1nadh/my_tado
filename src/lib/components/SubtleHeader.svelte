@@ -125,8 +125,9 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 0;
+		margin-bottom: 1.5rem;
 		width: 100%;
+		padding-top: 0.8rem;
 	}
 
 	.today-subtle-selector-shell {
@@ -143,17 +144,21 @@
 		height: 0.5rem;
 	}
 
+	.subtle-header-row::before {
+		display: none;
+	}
+
 	.today-subtle-mode-display {
 		display: flex;
 		align-items: center;
 		gap: 0.6rem;
-		padding: 0.5rem 0.9rem;
-		background: var(--panel);
-		border: 1px solid var(--line);
-		border-radius: 0.85rem;
+		padding: 0.55rem 1.1rem;
+		background: var(--panel-solid);
+		border: 2px solid var(--line);
+		border-radius: 999px;
 		color: var(--text);
 		font-size: 0.9rem;
-		font-weight: 500;
+		font-weight: 700;
 		transition: all 0.2s ease;
 		position: relative;
 		overflow: hidden;
@@ -165,7 +170,9 @@
 	}
 
 	.today-subtle-mode-display.active {
-		border-color: var(--line-strong);
+		background: var(--amber);
+		border-color: var(--gold);
+		color: #FFFFFF;
 	}
 
 	/* Keep trigger visible even while dropdown is open. */
@@ -193,16 +200,15 @@
 		right: -2px;
 		width: 6px;
 		height: 6px;
-		background: var(--mode-color);
+		background: var(--amber);
+		border: 1px solid var(--bg-deep);
 		border-radius: 50%;
-		box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
-		animation: mode-pulse 2s infinite;
 	}
 
 	@keyframes mode-pulse {
-		0% { transform: scale(0.95); opacity: 0.8; }
-		50% { transform: scale(1.2); opacity: 1; }
-		100% { transform: scale(0.95); opacity: 0.8; }
+		/* Animation disabled for solid theme */
+		0% { transform: scale(1); }
+		100% { transform: scale(1); }
 	}
 
 	.today-subtle-mode-time {
@@ -272,7 +278,7 @@
 	}
 
 	.today-subtle-modes-dropdown:not(.locked) .mode-pill:hover {
-		background: rgba(79, 70, 229, 0.16);
+		background: rgba(245, 158, 11, 0.16);
 		color: var(--text);
 	}
 
@@ -310,7 +316,7 @@
 	.subtle-header-profile-label {
 		font-size: 0.82rem;
 		font-weight: 750;
-		color: rgba(234, 242, 255, 0.86);
+		color: rgba(254, 243, 199, 0.86);
 		letter-spacing: 0.01em;
 	}
 
@@ -350,7 +356,7 @@
 		border: none;
 		border-radius: 8px;
 		background: transparent;
-		color: rgba(234, 242, 255, 0.92);
+		color: rgba(254, 243, 199, 0.92);
 		font-size: 0.83rem;
 		font-weight: 600;
 		text-align: left;
@@ -360,7 +366,7 @@
 	}
 
 	.today-settings-item:hover {
-		background: rgba(79, 70, 229, 0.16);
+		background: rgba(245, 158, 11, 0.16);
 		color: var(--text);
 	}
 

@@ -471,8 +471,8 @@
 		display: flex;
 		flex-direction: column;
 		background:
-			radial-gradient(circle at top left, rgba(37, 112, 215, 0.18), transparent 42%),
-			linear-gradient(165deg, rgba(7, 17, 32, 0.96), rgba(6, 12, 24, 0.98));
+			radial-gradient(ellipse at top left, rgba(180, 83, 9, 0.08) 0%, transparent 55%),
+			var(--panel);
 		border: none;
 		border-radius: 0;
 		overflow: hidden;
@@ -480,8 +480,8 @@
 
 	.all-header {
 		padding: 0.9rem 1rem 0.78rem;
-		border-bottom: 1px solid rgba(133, 188, 255, 0.14);
-		background: rgba(255, 255, 255, 0.02);
+		border-bottom: 1px solid rgba(180, 83, 9, 0.2);
+		background: rgba(255, 255, 255, 0.01);
 		display: grid;
 		gap: 0.7rem;
 	}
@@ -519,8 +519,8 @@
 		width: 2rem;
 		height: 2rem;
 		border-radius: 0.62rem;
-		border: 1px solid rgba(133, 188, 255, 0.2);
-		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(180, 83, 9, 0.2);
+		background: rgba(255, 255, 255, 0.04);
 		color: var(--muted);
 		cursor: pointer;
 		transition: all 0.2s ease;
@@ -556,8 +556,8 @@
 		gap: 0.15rem;
 		padding: 0.16rem;
 		border-radius: 999px;
-		border: 1px solid rgba(133, 188, 255, 0.18);
-		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(180, 83, 9, 0.24);
+		background: rgba(180, 83, 9, 0.06);
 	}
 
 	.all-tab {
@@ -583,8 +583,8 @@
 	}
 
 	.all-tab.active {
-		background: rgba(45, 127, 249, 0.18);
-		color: var(--text);
+		background: rgba(180, 83, 9, 0.32);
+		color: #fde68a;
 	}
 
 	.all-tab-count {
@@ -602,9 +602,9 @@
 	}
 
 	.all-toggle {
-		border: 1px solid rgba(133, 188, 255, 0.2);
-		background: rgba(255, 255, 255, 0.06);
-		color: var(--text);
+		border: 1px solid rgba(180, 83, 9, 0.22);
+		background: rgba(180, 83, 9, 0.08);
+		color: var(--muted);
 		border-radius: 0.62rem;
 		padding: 0.34rem 0.6rem;
 		font-size: 0.76rem;
@@ -625,9 +625,9 @@
 	.all-add {
 		width: 2.1rem;
 		height: 2.1rem;
-		border: 1px solid rgba(117, 212, 255, 0.36);
+		border: 1px solid rgba(251, 191, 36, 0.3);
 		border-radius: 0.64rem;
-		background: linear-gradient(145deg, rgba(77, 166, 255, 0.92), rgba(67, 106, 227, 0.95));
+		background: linear-gradient(145deg, rgba(245, 158, 11, 0.92), rgba(180, 83, 9, 0.95));
 		color: #fff;
 		display: inline-flex;
 		align-items: center;
@@ -637,8 +637,8 @@
 	}
 
 	.all-add:hover {
-		filter: brightness(1.06);
-		box-shadow: 0 8px 16px rgba(41, 107, 206, 0.3);
+		filter: brightness(1.1);
+		box-shadow: 0 8px 16px rgba(180, 83, 9, 0.35);
 	}
 
 	.all-content {
@@ -651,8 +651,8 @@
 		margin-bottom: 0.72rem;
 		padding: 0.66rem;
 		border-radius: 0.8rem;
-		border: 1px solid rgba(133, 188, 255, 0.14);
-		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(180, 83, 9, 0.16);
+		background: rgba(255, 255, 255, 0.02);
 	}
 
 	.all-section-flat {
@@ -667,7 +667,7 @@
 		font-weight: 650;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--cyan);
+		color: #d97706;
 		margin-bottom: 0.5rem;
 	}
 

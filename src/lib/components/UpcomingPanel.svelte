@@ -943,7 +943,9 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: transparent;
+		background:
+			radial-gradient(ellipse at top right, rgba(180, 83, 9, 0.08) 0%, transparent 55%),
+			var(--panel);
 		backdrop-filter: none;
 		border: none;
 		border-radius: 1.2rem;
@@ -952,8 +954,8 @@
 
 	.upcoming-header {
 		padding: 1.1rem 1.2rem 1rem;
-		border-bottom: 1px solid rgba(133, 188, 255, 0.16);
-		background: rgba(255, 255, 255, 0.02);
+		border-bottom: 1px solid rgba(180, 83, 9, 0.2);
+		background: rgba(255, 255, 255, 0.01);
 		display: grid;
 		gap: 0.95rem;
 	}
@@ -977,10 +979,10 @@
 
 	.upcoming-title i {
 		font-size: 1rem;
-		color: rgba(117, 212, 255, 0.95);
+		color: #f59e0b;
 		padding: 0.4rem;
 		border-radius: 0.6rem;
-		background: rgba(66, 130, 255, 0.14);
+		background: rgba(180, 83, 9, 0.18);
 	}
 
 	.upcoming-title h2 {
@@ -1027,10 +1029,10 @@
 
 	.range-chip {
 		padding: 0.36rem 0.66rem;
-		border: 1px solid rgba(137, 186, 255, 0.24);
+		border: 1px solid rgba(180, 83, 9, 0.24);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.07);
-		color: var(--text);
+		background: rgba(180, 83, 9, 0.06);
+		color: var(--muted);
 		font-size: 0.77rem;
 		font-weight: 600;
 		cursor: pointer;
@@ -1038,14 +1040,15 @@
 	}
 
 	.range-chip:hover {
-		background: rgba(255, 255, 255, 0.12);
-		border-color: rgba(117, 212, 255, 0.5);
+		background: rgba(180, 83, 9, 0.14);
+		border-color: rgba(245, 158, 11, 0.4);
+		color: var(--text);
 	}
 
 	.range-chip.active {
-		background: linear-gradient(145deg, rgba(66, 170, 255, 0.5), rgba(66, 108, 224, 0.45));
-		border-color: rgba(117, 212, 255, 0.45);
-		color: #ebf6ff;
+		background: rgba(180, 83, 9, 0.3);
+		border-color: rgba(245, 158, 11, 0.5);
+		color: #fde68a;
 	}
 
 	.quick-chip-row {
@@ -1063,8 +1066,8 @@
 	.quick-chip {
 		flex-shrink: 0;
 		padding: 0.36rem 0.62rem;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(137, 186, 255, 0.2);
+		background: rgba(180, 83, 9, 0.06);
+		border: 1px solid rgba(180, 83, 9, 0.18);
 		border-radius: 999px;
 		color: var(--muted);
 		font-size: 0.76rem;
@@ -1079,9 +1082,9 @@
 	}
 
 	.quick-chip.active {
-		background: linear-gradient(145deg, rgba(66, 170, 255, 0.5), rgba(66, 108, 224, 0.45));
-		color: #ebf6ff;
-		border-color: rgba(117, 212, 255, 0.45);
+		background: rgba(180, 83, 9, 0.3);
+		color: #fde68a;
+		border-color: rgba(245, 158, 11, 0.5);
 	}
 
 	.filter-summary-row {
@@ -1095,8 +1098,8 @@
 	.filter-summary-copy {
 		font-size: 0.78rem;
 		color: var(--muted);
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(137, 186, 255, 0.16);
+		background: rgba(180, 83, 9, 0.08);
+		border: 1px solid rgba(180, 83, 9, 0.18);
 		border-radius: 0.62rem;
 		padding: 0.32rem 0.58rem;
 	}
@@ -1122,8 +1125,8 @@
 		gap: 0.25rem;
 		padding: 0.2rem;
 		border-radius: 0.8rem;
-		border: 1px solid rgba(137, 186, 255, 0.2);
-		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(180, 83, 9, 0.22);
+		background: rgba(180, 83, 9, 0.06);
 	}
 
 	.segment-btn {
@@ -1146,8 +1149,8 @@
 	}
 
 	.segment-btn.active {
-		background: rgba(45, 127, 249, 0.24);
-		color: var(--text);
+		background: rgba(180, 83, 9, 0.3);
+		color: #fde68a;
 	}
 
 	.segment-count {
@@ -1157,8 +1160,8 @@
 		min-width: 1.7rem;
 		padding: 0.08rem 0.4rem;
 		border-radius: 999px;
-		border: 1px solid rgba(137, 186, 255, 0.18);
-		background: rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(180, 83, 9, 0.2);
+		background: rgba(180, 83, 9, 0.08);
 		font-size: 0.72rem;
 		font-weight: 800;
 		color: inherit;
@@ -1172,8 +1175,8 @@
 		max-width: 28rem;
 		padding: 0.46rem 0.62rem;
 		border-radius: 0.76rem;
-		border: 1px solid rgba(137, 186, 255, 0.24);
-		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(180, 83, 9, 0.2);
+		background: rgba(180, 83, 9, 0.05);
 	}
 
 	.upcoming-search-shell i {
@@ -1249,12 +1252,12 @@
 	}
 
 	.scope-menu-item:hover {
-		background: rgba(79, 70, 229, 0.12);
+		background: rgba(245, 158, 11, 0.12);
 		border-color: rgba(245, 158, 11, 0.22);
 	}
 
 	.scope-menu-item.active {
-		background: rgba(79, 70, 229, 0.18);
+		background: rgba(245, 158, 11, 0.18);
 		border-color: rgba(245, 158, 11, 0.32);
 	}
 
@@ -1265,7 +1268,7 @@
 		min-width: 2rem;
 		padding: 0.08rem 0.45rem;
 		border-radius: 999px;
-		border: 1px solid rgba(137, 186, 255, 0.14);
+		border: 1px solid rgba(252, 211, 77, 0.12);
 		background: rgba(255, 255, 255, 0.05);
 		color: var(--muted);
 		font-size: 0.74rem;
@@ -1274,9 +1277,9 @@
 
 	.toolbar-button-lite {
 		padding: 0.4rem 0.64rem;
-		border: 1px solid rgba(137, 186, 255, 0.24);
-		background: rgba(255, 255, 255, 0.07);
-		color: var(--text);
+		border: 1px solid rgba(180, 83, 9, 0.22);
+		background: rgba(180, 83, 9, 0.07);
+		color: var(--muted);
 		border-radius: 0.66rem;
 		font-size: 0.78rem;
 		font-weight: 600;
@@ -1292,8 +1295,8 @@
 		display: flex;
 		flex-direction: column;
 		padding: 0.42rem 0.8rem;
-		background: rgba(45, 127, 249, 0.14);
-		border: 1px solid rgba(89, 213, 255, 0.26);
+		background: rgba(245, 158, 11, 0.14);
+		border: 1px solid rgba(251, 191, 36, 0.24);
 		border-radius: 0.72rem;
 	}
 
@@ -1314,7 +1317,7 @@
 	.icon-btn {
 		width: 2.2rem;
 		height: 2.2rem;
-		border: 1px solid rgba(137, 186, 255, 0.24);
+		border: 1px solid rgba(180, 83, 9, 0.22);
 		border-radius: 0.66rem;
 		cursor: pointer;
 		transition: all 0.2s ease;
@@ -1324,13 +1327,13 @@
 	}
 
 	.add-btn {
-		background: linear-gradient(145deg, rgba(77, 166, 255, 0.95), rgba(67, 106, 227, 0.95));
+		background: linear-gradient(145deg, rgba(245, 158, 11, 0.95), rgba(180, 83, 9, 0.95));
 		color: white;
 	}
 
 	.add-btn:hover {
 		filter: brightness(1.06);
-		box-shadow: 0 8px 16px rgba(42, 106, 200, 0.3);
+		box-shadow: 0 8px 16px rgba(180, 83, 9, 0.3);
 	}
 
 	.upcoming-content {
@@ -1378,7 +1381,7 @@
 		padding: 0.72rem;
 		border-radius: 0.95rem;
 		background: rgba(255, 255, 255, 0.025);
-		border: 1px solid rgba(137, 186, 255, 0.13);
+		border: 1px solid rgba(252, 211, 77, 0.1);
 	}
 
 	.day-header {
@@ -1391,7 +1394,7 @@
 		cursor: pointer;
 		padding: 0.52rem 0.7rem;
 		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(137, 186, 255, 0.18);
+		border: 1px solid rgba(252, 211, 77, 0.16);
 		border-radius: 0.7rem;
 		margin-bottom: 0.6rem;
 	}
@@ -1401,7 +1404,7 @@
 	}
 
 	.day-header:focus-visible {
-		outline: 2px solid rgba(89, 213, 255, 0.35);
+		outline: 2px solid rgba(245, 158, 11, 0.4);
 		outline-offset: 2px;
 	}
 
@@ -1433,7 +1436,7 @@
 		color: var(--muted);
 		padding: 0.14rem 0.38rem;
 		border-radius: 999px;
-		border: 1px solid rgba(137, 186, 255, 0.16);
+		border: 1px solid rgba(252, 211, 77, 0.12);
 		background: rgba(255, 255, 255, 0.06);
 	}
 
@@ -1560,16 +1563,16 @@
 		gap: 0.75rem;
 		padding: 0.65rem 0.75rem;
 		border-radius: 0.9rem;
-		border: 1px solid rgba(137, 186, 255, 0.14);
-		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(180, 83, 9, 0.14);
+		background: rgba(180, 83, 9, 0.04);
 		color: var(--text);
 		font-weight: 650;
 		cursor: pointer;
 	}
 
 	.sheet-option.active {
-		border-color: rgba(89, 213, 255, 0.28);
-		background: rgba(45, 127, 249, 0.18);
+		border-color: rgba(251, 191, 36, 0.28);
+		background: rgba(245, 158, 11, 0.18);
 	}
 
 	.sheet-count {
