@@ -74,7 +74,47 @@
 	const islandTabs = ['All', 'Today', 'Upcoming'];
 	let islandLockToastAt = 0;
 	let timelineGrid;
+	let allActionModalOpen = false;
+	let allActionDraft = '';
+	let allActionInput;
+	let allActionDismissedPhrases = [];
+	let upcomingActionModalOpen = false;
+	let upcomingActionDraft = '';
+	let upcomingActionInput;
+	let upcomingActionDismissedPhrases = [];
 	let lastAutoSwitchedBlockId = null;
+
+	// All modal reactive values
+	$: allActionCount = allActionDraft
+		.split('\n')
+		.map((line) => line.trim())
+		.filter(Boolean).length;
+	$: allActionLines = allActionDraft.split('\n');
+	$: allActionHighlightHtml = allActionLines
+		.map((line, index) => {
+			const match = detectActionDate(line);
+			return buildHighlightedDateHtml(
+				line,
+				match && match.phrase.toLowerCase() !== (allActionDismissedPhrases[index] || '') ? match : null
+			);
+		})
+		.join('\n');
+
+	// Upcoming modal reactive values
+	$: upcomingActionCount = upcomingActionDraft
+		.split('\n')
+		.map((line) => line.trim())
+		.filter(Boolean).length;
+	$: upcomingActionLines = upcomingActionDraft.split('\n');
+	$: upcomingActionHighlightHtml = upcomingActionLines
+		.map((line, index) => {
+			const match = detectActionDate(line);
+			return buildHighlightedDateHtml(
+				line,
+				match && match.phrase.toLowerCase() !== (upcomingActionDismissedPhrases[index] || '') ? match : null
+			);
+		})
+		.join('\n');
 	let modeBlockInterval;
 	let timelineUpdateInterval;
 	let railCompact = browser ? window.matchMedia('(max-width: 1199px)').matches : false;
@@ -830,6 +870,110 @@
 		closeActionModal();
 	}
 
+	// All tab modal functions
+	async function openAllActionModal() {
+		allActionModalOpen = true;
+		allActionDismissedPhrases = [''];
+		await tick();
+		allActionInput?.focus();
+	}
+
+	function closeAllActionModal() {
+		allActionModalOpen = false;
+		allActionDraft = '';
+		allActionDismissedPhrases = [];
+	}
+
+	function submitAllActions() {
+		const lines = allActionDraft.split('\n');
+		const entries = lines
+			.map((line, index) => {
+				const match = getEffectiveAllActionDateMatch(line, index);
+				const title = stripDetectedDateText(line, match);
+				if (!title) return null;
+				return { title, dueDate: match?.dueDate || '' };
+			})
+			.filter(Boolean);
+
+		if (!entries.length) return;
+
+		const currentMode = $activeMode;
+
+		for (const entry of entries) {
+			addTask({
+				title: entry.title,
+				mode: currentMode,
+				priority: 'Medium',
+				energy: 'Quick',
+				context: '',
+				dueDate: entry.dueDate
+			});
+		}
+
+		closeAllActionModal();
+	}
+
+	function syncAllActionDateDismissed() {
+		allActionDismissedPhrases = allActionDraft.split('\n').map((_, index) => allActionDismissedPhrases[index] || '');
+	}
+
+	function getEffectiveAllActionDateMatch(line, index) {
+		const match = detectActionDate(line);
+		return match && match.phrase.toLowerCase() !== (allActionDismissedPhrases[index] || '') ? match : null;
+	}
+
+	// Upcoming tab modal functions
+	async function openUpcomingActionModal() {
+		upcomingActionModalOpen = true;
+		upcomingActionDismissedPhrases = [''];
+		await tick();
+		upcomingActionInput?.focus();
+	}
+
+	function closeUpcomingActionModal() {
+		upcomingActionModalOpen = false;
+		upcomingActionDraft = '';
+		upcomingActionDismissedPhrases = [];
+	}
+
+	function submitUpcomingActions() {
+		const lines = upcomingActionDraft.split('\n');
+		const entries = lines
+			.map((line, index) => {
+				const match = getEffectiveUpcomingActionDateMatch(line, index);
+				const title = stripDetectedDateText(line, match);
+				if (!title) return null;
+				return { title, dueDate: match?.dueDate || todayDate };
+			})
+			.filter(Boolean);
+
+		if (!entries.length) return;
+
+		const currentMode = $activeMode;
+
+		for (const entry of entries) {
+			addTask({
+				title: entry.title,
+				mode: currentMode,
+				priority: 'Medium',
+				energy: 'Quick',
+				context: '',
+				dueDate: entry.dueDate
+			});
+		}
+
+		closeUpcomingActionModal();
+	}
+
+	function syncUpcomingActionDateDismissed() {
+		upcomingActionDismissedPhrases = upcomingActionDraft.split('\n').map((_, index) => upcomingActionDismissedPhrases[index] || '');
+	}
+
+	function getEffectiveUpcomingActionDateMatch(line, index) {
+		const match = detectActionDate(line);
+		return match && match.phrase.toLowerCase() !== (upcomingActionDismissedPhrases[index] || '') ? match : null;
+	}
+
 	function handleActionDraftKeydown(event) {
 		if (event.key !== 'Escape') return;
 
@@ -1045,282 +1189,287 @@
 
 		{#if activeIslandTab === 'Today'}
 			<section class="glass-panel rounded-4 p-4 fade-up" style="flex-grow: 1;">
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-			<div class="d-flex align-items-center gap-3">
-				<div class="d-flex align-items-baseline gap-2">
-					<ZenProgress completed={todayDoneCount} total={todayTotalCount} size={36} />
-				</div>
-				{#if taskViewMode === 'completed'}
-					<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
-				{/if}
-			</div>
-			<div class="d-flex flex-wrap align-items-center gap-2">
-				<button class="icon-button search-launch-button" type="button" aria-label="Search actions" onclick={openSearch}>
-					<i class="fa-solid fa-magnifying-glass"></i>
-				</button>
-				<button
-					class={`toolbar-button focus-mode-trigger ${focusView !== 'overview' ? 'active' : ''} ${focusPressing ? 'pressing' : ''}`}
-					type="button"
-					aria-label={focusView === 'overview' ? 'Enter Focus Today' : `Exit ${focusModeLabel}`}
-					title={focusView === 'overview' ? 'Focus mode' : `Exit ${focusModeLabel}`}
-					style={`--focus-hold-progress:${focusHoldProgress}; width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;`}
-					oncontextmenu={handleFocusButtonContextMenu}
-					onkeydown={handleFocusButtonKeydown}
-					onpointerdown={startFocusHold}
-					onpointerup={handleFocusButtonPointerUp}
-					onpointercancel={cancelFocusHold}
-					onpointerleave={cancelFocusHold}
-				>
-					<i class={`${focusView === 'single' ? 'fa-solid fa-bullseye' : 'fa-solid fa-star'}`}></i>
-				</button>
-				<button
-					class={`icon-button ${todayRailOpen ? 'active' : ''}`}
-					type="button"
-					aria-label={todayRailOpen ? 'Close mode time block' : 'Open mode time block'}
-					title={todayRailOpen ? 'Close mode time block' : 'Mode time block'}
-					onclick={toggleTodayRail}
-					style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;"
-				>
-					<i class="fa-regular fa-calendar-days"></i>
-				</button>
-				<button class="btn btn-brand" type="button" aria-label="Add Action" onclick={openActionModal} style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.7rem;">
-					<i class="fa-solid fa-plus"></i>
-				</button>
-			</div>
-		</div>
-
-		<!-- Tab buttons for task views -->
-		<div class="d-flex gap-2 mb-4" style="border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1)); padding-bottom: 0;">
-			<button
-				class={`tab-button ${taskViewMode === 'active' ? 'active' : ''}`}
-				type="button"
-				onclick={() => { taskViewMode = 'active'; panelDirection = -1; }}
-				style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
-			>
-				Active {#if overdueActiveActions.length + todayActiveActions.length > 0}<span style="opacity: 0.6;">({overdueActiveActions.length + todayActiveActions.length})</span>{/if}
-			</button>
-			<button
-				class={`tab-button ${taskViewMode === 'paused' ? 'active' : ''}`}
-				type="button"
-				onclick={() => { taskViewMode = 'paused'; panelDirection = 1; }}
-				style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
-			>
-				Paused {#if pausedActions.length > 0}<span style="opacity: 0.6;">({pausedActions.length})</span>{/if}
-			</button>
-			<button
-				class={`tab-button ${taskViewMode === 'completed' ? 'active' : ''}`}
-				type="button"
-				onclick={() => { taskViewMode = 'completed'; panelDirection = 1; }}
-				style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
-			>
-				Completed {#if completedTodayTasks.length > 0}<span style="opacity: 0.6;">({completedTodayTasks.length})</span>{/if}
-			</button>
-		</div>
-
-		{#if taskViewMode === 'completed'}
-			{#if completedTodayTasks.length}
-				<section
-					class="mb-4"
-					in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
-					out:fly={{ x: panelDirection > 0 ? 56 : -56, duration: 120 }}
-				>
-					<div class="list-heading">Completed Actions</div>
-						<div class="task-list">
-							{#each completedTodayTasks as task (task.id)}
-								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow
-										{task}
-										disableOptions={searchOpen}
-										showTodayStarBadge
-										showTodayStarControls
-										showModeBadge
-									/>
-								</div>
-							{/each}
+				<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+					<div class="d-flex align-items-center gap-3">
+						<div class="d-flex align-items-baseline gap-2">
+							<ZenProgress completed={todayDoneCount} total={todayTotalCount} size={36} />
 						</div>
-				</section>
-			{:else}
-				<div class="empty-state">No completed actions right now.</div>
-			{/if}
-		{:else if taskViewMode === 'paused'}
-			<!-- Paused tasks view -->
-			{#if pausedActions.length}
-				<section
-					class="mb-4"
-					in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
-					out:fly={{ x: panelDirection > 0 ? 56 : -56, duration: 120 }}
-				>
-					<div class="task-list">
-						{#each pausedActions as task (task.id)}
-							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-								<TaskRow
-									{task}
-									disableOptions={searchOpen}
-									showTodayStarBadge
-									showTodayStarControls
-									showModeBadge
-									hideDueDate={false}
-								/>
-							</div>
-						{/each}
-					</div>
-				</section>
-			{:else}
-				<div class="empty-state">No paused actions right now.</div>
-			{/if}
-		{:else if focusView === 'progressive'}
-			<div class="today-focus-flow">
-				<div class="today-focus-flow-head">
-					<div>
-						<div class="section-label">Focus Today</div>
-						{#if currentProgressiveBucket}
-							<div class="today-focus-flow-title">Now working: {currentProgressiveBucketTitle}</div>
-							<div class="soft-text small mt-2">
-								{currentProgressiveStarMeta?.meaning || 'These are the remaining actions for today.'}
-							</div>
-						{:else}
-							<div class="today-focus-flow-title">Today is clear</div>
+						{#if taskViewMode === 'completed'}
+							<button class="toolbar-button" type="button" onclick={clearDoneForMode}>Clear done</button>
 						{/if}
 					</div>
-					<div class="soft-text small">One star bucket at a time.</div>
+					<div class="d-flex flex-wrap align-items-center gap-2">
+						<button class="icon-button search-launch-button" type="button" aria-label="Search actions" onclick={openSearch}>
+							<i class="fa-solid fa-magnifying-glass"></i>
+						</button>
+						<button
+							class={`toolbar-button focus-mode-trigger ${focusView !== 'overview' ? 'active' : ''} ${focusPressing ? 'pressing' : ''}`}
+							type="button"
+							aria-label={focusView === 'overview' ? 'Enter Focus Today' : `Exit ${focusModeLabel}`}
+							title={focusView === 'overview' ? 'Focus mode' : `Exit ${focusModeLabel}`}
+							style={`--focus-hold-progress:${focusHoldProgress}; width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;`}
+							oncontextmenu={handleFocusButtonContextMenu}
+							onkeydown={handleFocusButtonKeydown}
+							onpointerdown={startFocusHold}
+							onpointerup={handleFocusButtonPointerUp}
+							onpointercancel={cancelFocusHold}
+							onpointerleave={cancelFocusHold}
+						>
+							<i class={`${focusView === 'single' ? 'fa-solid fa-bullseye' : 'fa-solid fa-star'}`}></i>
+						</button>
+						<button
+							class={`icon-button ${todayRailOpen ? 'active' : ''}`}
+							type="button"
+							aria-label={todayRailOpen ? 'Close mode time block' : 'Open mode time block'}
+							title={todayRailOpen ? 'Close mode time block' : 'Mode time block'}
+							onclick={toggleTodayRail}
+							style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;"
+						>
+							<i class="fa-regular fa-calendar-days"></i>
+						</button>
+						<button class="btn btn-brand" type="button" aria-label="Add Action" onclick={openActionModal} style="width: 2.4rem; height: 2.4rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.7rem;">
+							<i class="fa-solid fa-plus"></i>
+						</button>
+					</div>
 				</div>
 
-				{#if currentProgressiveBucket}
-					<div class="task-list">
-						{#each currentProgressiveBucket.tasks as task (task.id)}
-							<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-								<TaskRow
-									{task}
-									disableOptions={searchOpen}
-									showTodayStarControls
-									showModeBadge
-									hideDueDate={true}
-								/>
-							</div>
-						{/each}
-					</div>
+				<!-- Tab buttons for task views -->
+				<div class="d-flex gap-2 mb-4" style="border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1)); padding-bottom: 0;">
+					<button
+						class={`tab-button ${taskViewMode === 'active' ? 'active' : ''}`}
+						type="button"
+						onclick={() => { taskViewMode = 'active'; panelDirection = -1; }}
+						style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
+					>
+						Active {#if overdueActiveActions.length + todayActiveActions.length > 0}<span style="opacity: 0.6;">({overdueActiveActions.length + todayActiveActions.length})</span>{/if}
+					</button>
+					<button
+						class={`tab-button ${taskViewMode === 'paused' ? 'active' : ''}`}
+						type="button"
+						onclick={() => { taskViewMode = 'paused'; panelDirection = 1; }}
+						style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
+					>
+						Paused {#if pausedActions.length > 0}<span style="opacity: 0.6;">({pausedActions.length})</span>{/if}
+					</button>
+					<button
+						class={`tab-button ${taskViewMode === 'completed' ? 'active' : ''}`}
+						type="button"
+						onclick={() => { taskViewMode = 'completed'; panelDirection = 1; }}
+						style="padding: 0.75rem 1rem; border: none; background: none; color: inherit; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;"
+					>
+						Completed {#if completedTodayTasks.length > 0}<span style="opacity: 0.6;">({completedTodayTasks.length})</span>{/if}
+					</button>
+				</div>
 
-					{#if nextProgressiveBuckets.length}
-						<div class="today-focus-next-action">
-							<button
-								class="toolbar-button active"
-								type="button"
-								onclick={showNextProgressiveBucket}
-							>
-								Show {nextProgressiveBuckets[0].star === 'none'
-									? 'remaining actions'
-									: `${nextProgressiveBuckets[0].star} star actions`} next
-								<i class="fa-solid fa-chevron-right ms-2"></i>
-							</button>
+				{#if taskViewMode === 'active'}
+					{#if focusView === 'progressive'}
+						<div class="today-focus-flow">
+							<div class="today-focus-flow-head">
+								<div>
+									<div class="section-label">Focus Today</div>
+									{#if currentProgressiveBucket}
+										<div class="today-focus-flow-title">Now working: {currentProgressiveBucketTitle}</div>
+										<div class="soft-text small mt-2">
+											{currentProgressiveStarMeta?.meaning || 'These are the remaining actions for today.'}
+										</div>
+									{:else}
+										<div class="today-focus-flow-title">Today is clear</div>
+									{/if}
+								</div>
+								<div class="soft-text small">One star bucket at a time.</div>
+							</div>
+
+							{#if currentProgressiveBucket}
+								<div class="task-list">
+									{#each currentProgressiveBucket.tasks as task (task.id)}
+										<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+											<TaskRow
+												{task}
+												disableOptions={searchOpen}
+												showTodayStarControls
+												showModeBadge
+												hideDueDate={true}
+											/>
+										</div>
+									{/each}
+								</div>
+
+								{#if nextProgressiveBuckets.length}
+									<div class="today-focus-next-action">
+										<button
+											class="toolbar-button active"
+											type="button"
+											onclick={showNextProgressiveBucket}
+										>
+											Show {nextProgressiveBuckets[0].star === 'none'
+												? 'remaining actions'
+												: `${nextProgressiveBuckets[0].star} star actions`} next
+											<i class="fa-solid fa-chevron-right ms-2"></i>
+										</button>
+									</div>
+								{/if}
+							{:else}
+								<div class="empty-state">Nothing left in Today. Switch back to overview if you want the full page again.</div>
+							{/if}
+						</div>
+					{:else}
+						<div
+							in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
+							out:fly={{ x: panelDirection < 0 ? -56 : 56, duration: 120 }}
+						>
+							{#if overdueActiveActions.length}
+								<section class="mb-4">
+									<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+										<div class="list-heading mb-0">Overdue</div>
+										<button class="toolbar-button" type="button" onclick={rescheduleOverdueToToday}>
+											Reschedule to today
+										</button>
+									</div>
+									<div class="task-list">
+										{#each overdueActiveActions as task (task.id)}
+											<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+												<TaskRow
+													{task}
+													disableOptions={searchOpen}
+													showTodayStarControls
+													showTodayStarBadge
+													showModeBadge
+													hideDueDate={true}
+												/>
+											</div>
+										{/each}
+									</div>
+								</section>
+							{/if}
+
+							<section>
+								<div class="list-heading">Today <span class="ms-2 fw-normal" style="opacity: 0.6;">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span></div>
+								<div class="task-list">
+									{#if todayActiveActions.length}
+										{#each todayActiveActions as task (task.id)}
+											<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+												<TaskRow
+													{task}
+													disableOptions={searchOpen}
+													showTodayStarControls
+													showTodayStarBadge
+													showModeBadge
+													hideDueDate={true}
+												/>
+											</div>
+										{/each}
+									{:else}
+										<div class="empty-state">
+											{#if isGapHidden}
+												<i class="fa-solid fa-lock mb-2 d-block opacity-25" style="font-size: 1.5rem;"></i>
+												Actions are hidden during scheduled gaps.
+											{:else}
+												No actions for today.
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</section>
+							{#if backlogTasks && backlogTasks.length > 0}
+								<section class="mt-5 mb-5 backlog-section">
+									<button
+										class="list-heading backlog-toggle border-0 bg-transparent p-0 d-flex align-items-center gap-2 w-100 text-start"
+										type="button"
+										onclick={() => backlogExpanded = !backlogExpanded}
+										style="opacity: 0.6; cursor: pointer; transition: opacity 0.2s;"
+										onmouseover={(e) => e.currentTarget.style.opacity='1'}
+										onmouseout={(e) => e.currentTarget.style.opacity='0.6'}
+										onfocus={(e) => e.currentTarget.style.opacity='1'}
+										onblur={(e) => e.currentTarget.style.opacity='0.6'}
+									>
+										<i class="fa-solid fa-chevron-{backlogExpanded ? 'down' : 'right'}" style="font-size: 0.85em; width: 14px; text-align: center;"></i>
+										<span>Backlog & Upcoming</span>
+										<span class="badge-soft rounded-pill px-2 py-1 ms-2 font-monospace" style="font-size: 0.65rem; font-weight: 600;">{backlogTasks.length}</span>
+									</button>
+
+									{#if backlogExpanded}
+										<div class="task-list mt-4">
+											{#each backlogTasks as task (task.id)}
+												<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+													<TaskRow
+														{task}
+														disableOptions={searchOpen}
+														showModeBadge
+													/>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</section>
+							{/if}
 						</div>
 					{/if}
-				{:else}
-					<div class="empty-state">Nothing left in Today. Switch back to overview if you want the full page again.</div>
-				{/if}
-
-			</div>
-		{:else}
-			<div
-				in:fly={{ x: panelDirection < 0 ? -72 : 72, duration: 150 }}
-				out:fly={{ x: panelDirection < 0 ? -56 : 56, duration: 120 }}
-			>
-				{#if overdueActiveActions.length}
-					<section class="mb-4">
-						<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-							<div class="list-heading mb-0">Overdue</div>
-							<button class="toolbar-button" type="button" onclick={rescheduleOverdueToToday}>
-								Reschedule to today
-							</button>
-						</div>
-						<div class="task-list">
-							{#each overdueActiveActions as task (task.id)}
-								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow
-										{task}
-										disableOptions={searchOpen}
-										showTodayStarControls
-										showTodayStarBadge
-										showModeBadge
-										hideDueDate={true}
-									/>
-								</div>
-							{/each}
-						</div>
-					</section>
-				{/if}
-
-				<section>
-					<div class="list-heading">Today <span class="ms-2 fw-normal" style="opacity: 0.6;">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span></div>
-					<div class="task-list">
-						{#if todayActiveActions.length}
-							{#each todayActiveActions as task (task.id)}
-								<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
-									<TaskRow
-										{task}
-										disableOptions={searchOpen}
-										showTodayStarControls
-										showTodayStarBadge
-										showModeBadge
-										hideDueDate={true}
-									/>
-								</div>
-							{/each}
-						{:else}
-							<div class="empty-state">
-								{#if isGapHidden}
-									<i class="fa-solid fa-lock mb-2 d-block opacity-25" style="font-size: 1.5rem;"></i>
-									Actions are hidden during scheduled gaps.
-								{:else}
-									No actions for today.
-								{/if}
-							</div>
-						{/if}
-					</div>
-				</section>
-				{#if backlogTasks && backlogTasks.length > 0}
-					<section class="mt-5 mb-5 backlog-section">
-						<button 
-							class="list-heading backlog-toggle border-0 bg-transparent p-0 d-flex align-items-center gap-2 w-100 text-start" 
-							type="button" 
-							onclick={() => backlogExpanded = !backlogExpanded}
-							style="opacity: 0.6; cursor: pointer; transition: opacity 0.2s;"
-							onmouseover={(e) => e.currentTarget.style.opacity='1'}
-							onmouseout={(e) => e.currentTarget.style.opacity='0.6'}
-							onfocus={(e) => e.currentTarget.style.opacity='1'}
-							onblur={(e) => e.currentTarget.style.opacity='0.6'}
+				{:else if taskViewMode === 'paused'}
+					<!-- Paused tasks view -->
+					{#if pausedActions.length}
+						<section
+							class="mb-4"
+							in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
+							out:fly={{ x: panelDirection > 0 ? 56 : -56, duration: 120 }}
 						>
-							<i class="fa-solid fa-chevron-{backlogExpanded ? 'down' : 'right'}" style="font-size: 0.85em; width: 14px; text-align: center;"></i>
-							<span>Backlog & Upcoming</span>
-							<span class="badge-soft rounded-pill px-2 py-1 ms-2 font-monospace" style="font-size: 0.65rem; font-weight: 600;">{backlogTasks.length}</span>
-						</button>
-						
-						{#if backlogExpanded}
-							<div class="task-list mt-4">
-								{#each backlogTasks as task (task.id)}
+							<div class="task-list">
+								{#each pausedActions as task (task.id)}
 									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
 										<TaskRow
 											{task}
 											disableOptions={searchOpen}
+											showTodayStarBadge
+											showTodayStarControls
+											showModeBadge
+											hideDueDate={false}
+										/>
+									</div>
+								{/each}
+							</div>
+						</section>
+					{:else}
+						<div class="empty-state">No paused actions right now.</div>
+					{/if}
+				{:else if taskViewMode === 'completed'}
+					{#if completedTodayTasks.length}
+						<section
+							class="mb-4"
+							in:fly={{ x: panelDirection > 0 ? 72 : -72, duration: 150 }}
+							out:fly={{ x: panelDirection > 0 ? 56 : -56, duration: 120 }}
+						>
+							<div class="list-heading">Completed Actions</div>
+							<div class="task-list">
+								{#each completedTodayTasks as task (task.id)}
+									<div class="task-reorder-item" animate:flip={{ duration: 180 }}>
+										<TaskRow
+											{task}
+											disableOptions={searchOpen}
+											showTodayStarBadge
+											showTodayStarControls
 											showModeBadge
 										/>
 									</div>
 								{/each}
 							</div>
-						{/if}
-					</section>
+						</section>
+					{:else}
+						<div class="empty-state">No completed actions right now.</div>
+					{/if}
 				{/if}
-			</div>
-		{/if}
-			</section>
-		{:else if activeIslandTab === 'All'}
-			<section class="glass-panel rounded-4 p-0 fade-up overflow-hidden" style="flex-grow: 1;">
-				<InboxPanel open={true} isMainView={true} />
-			</section>
-		{:else if activeIslandTab === 'Upcoming'}
-			<section class="glass-panel rounded-4 p-0 fade-up overflow-hidden" style="flex-grow: 1;">
-				<UpcomingPanel open={true} isMainView={true} />
 			</section>
 		{/if}
+		{#if activeIslandTab === 'All'}
+			<section class="glass-panel rounded-4 p-0 fade-up" style="flex-grow: 1; overflow: visible;">
+				<InboxPanel open={true} isMainView={true} actionModalOpen={allActionModalOpen} actionDraft={allActionDraft} actionInput={allActionInput} actionDismissedPhrases={allActionDismissedPhrases} openActionModal={openAllActionModal} closeActionModal={closeAllActionModal} submitActions={submitAllActions} handleActionDraftInput={syncAllActionDateDismissed} />
+			</section>
+		{/if}
+		{#if activeIslandTab === 'Upcoming'}
+			<section class="glass-panel rounded-4 p-0 fade-up" style="flex-grow: 1; overflow: visible;">
+				<UpcomingPanel open={true} isMainView={true} actionModalOpen={upcomingActionModalOpen} actionDraft={upcomingActionDraft} actionInput={upcomingActionInput} actionDismissedPhrases={upcomingActionDismissedPhrases} openActionModal={openUpcomingActionModal} closeActionModal={closeUpcomingActionModal} submitActions={submitUpcomingActions} handleActionDraftInput={syncUpcomingActionDateDismissed} />
+			</section>
+		{/if}
+	</div>
+</div>
 
 		{#if todayRailOpen && !effectiveRailPinned}
 			<div
@@ -1616,142 +1765,310 @@
 			</div>
 		{/if}
 
-		{#if actionModalOpen}
-			<div
-				class="pause-modal-backdrop"
-				role="button"
-				tabindex="0"
-				aria-label="Close add action modal"
-				onclick={closeActionModal}
-				onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
-			>
-				<div
-					class="pause-modal action-capture-modal"
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="add-action-title-today"
-					tabindex="0"
-					onclick={(event) => event.stopPropagation()}
-					onkeydown={(event) => event.key === 'Escape' && closeActionModal()}
-				>
-					<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-						<div>
-							<div class="section-label">Quick Capture</div>
-							<div class="d-flex align-items-center gap-2 mt-2">
-								{#if $activeMode !== 'All Modes'}
-									<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
-										<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
-										{$activeMode}
-									</div>
-								{/if}
-								<h2 class="h6 mb-0" id="add-action-title-today">Add Actions</h2>
-							</div>
-							<p class="soft-text small mb-0 mt-1">One line per action. The current mode will be used automatically.</p>
-						</div>
-						<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
-							<i class="fa-solid fa-xmark"></i>
-						</button>
-					</div>
-
-					<div class="task-capture-shell">
-						<div class="task-capture-highlight" aria-hidden="true">
-							<div class="task-capture-highlight-copy">
-								{@html actionHighlightHtml}
-							</div>
-						</div>
-						<textarea
-							bind:this={actionInput}
-							class="form-control task-capture-input"
-							bind:value={actionDraft}
-							rows="10"
-							placeholder={`Finish stand-up notes\nCall bank for KYC update\nPick up medicines on the way home`}
-							oninput={handleActionDraftInput}
-							onkeydown={handleActionDraftKeydown}
-						></textarea>
-					</div>
-
-					<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-						<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
-						{#if actionCount}
-							<div class="badge badge-soft rounded-pill px-3 py-2">{actionCount} ready to add</div>
-						{/if}
-					</div>
-
-					<div class="d-flex justify-content-end gap-2 mt-3">
-						<button class="toolbar-button" type="button" onclick={closeActionModal}>Cancel</button>
-						<button class="toolbar-button active" type="button" onclick={submitActions} disabled={!actionCount}>
-							Add {actionCount || ''} {actionCount === 1 ? 'Action' : 'Actions'}
-						</button>
-					</div>
+{#if searchOpen}
+	<div
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close search"
+		onclick={closeSearch}
+		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
+	>
+		<div
+			class="pause-modal search-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="search-actions-title-today"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && closeSearch()}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Search</div>
+					<h2 class="h6 mt-2 mb-1" id="search-actions-title-today">Search Actions</h2>
+					<p class="soft-text small mb-0">Search inside the current Today view.</p>
 				</div>
+				<button class="icon-button" type="button" aria-label="Close search" onclick={closeSearch}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
 			</div>
-		{/if}
 
-		{#if searchOpen}
-			<div
-				class="pause-modal-backdrop"
-				role="button"
-				tabindex="0"
-				aria-label="Close search"
-				onclick={closeSearch}
-				onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
-			>
-				<div
-					class="pause-modal search-modal"
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="search-actions-title-today"
-					tabindex="0"
-					onclick={(event) => event.stopPropagation()}
-					onkeydown={(event) => event.key === 'Escape' && closeSearch()}
-				>
-					<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-						<div>
-							<div class="section-label">Search</div>
-							<h2 class="h6 mt-2 mb-1" id="search-actions-title-today">Search Actions</h2>
-							<p class="soft-text small mb-0">Search inside the current Today view.</p>
-						</div>
-						<button class="icon-button" type="button" aria-label="Close search" onclick={closeSearch}>
-							<i class="fa-solid fa-xmark"></i>
-						</button>
-					</div>
+			<input
+				bind:this={searchInput}
+				class="form-control"
+				type="text"
+				bind:value={search}
+				placeholder="Search actions"
+			/>
 
-					<input
-						bind:this={searchInput}
-						class="form-control"
-						type="text"
-						bind:value={search}
-						placeholder="Search actions"
-					/>
-
-					<div class="search-results-shell mt-3">
-						{#if search.trim()}
-							{#if modalSearchedTasks.length}
-								<div class="search-results-list task-list">
-									{#each modalSearchedTasks as task (task.id)}
-										<div class="search-result-row">
-											<TaskRow
-												{task}
-												showTodayStarControls
-												showTodayStarBadge
-												showModeBadge
-											/>
-										</div>
-									{/each}
+			<div class="search-results-shell mt-3">
+				{#if search.trim()}
+					{#if modalSearchedTasks.length}
+						<div class="search-results-list task-list">
+							{#each modalSearchedTasks as task (task.id)}
+								<div class="search-result-row">
+									<TaskRow
+										{task}
+										showTodayStarControls
+										showTodayStarBadge
+										showModeBadge
+									/>
 								</div>
-							{:else}
-								<div class="empty-state">No actions match this search.</div>
-							{/if}
-						{:else}
-							<div class="empty-state">Start typing to search actions in Today.</div>
-						{/if}
+							{/each}
+						</div>
+					{:else}
+						<div class="empty-state">No actions match this search.</div>
+					{/if}
+				{:else}
+					<div class="empty-state">Start typing to search actions in Today.</div>
+				{/if}
 
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if actionModalOpen}
+	<div
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close add action modal"
+		onclick={closeActionModal}
+		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
+	>
+		<div
+			class="pause-modal action-capture-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="add-action-title-today"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && closeActionModal()}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Quick Capture</div>
+					<div class="d-flex align-items-center gap-2 mt-2">
+						{#if $activeMode !== 'All Modes'}
+							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
+								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
+								{$activeMode}
+							</div>
+						{/if}
+						<h2 class="h6 mb-0" id="add-action-title-today">Add Actions</h2>
+					</div>
+					<p class="soft-text small mb-0 mt-1">One line per action. The current mode will be used automatically.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<div class="task-capture-shell">
+				<div class="task-capture-highlight" aria-hidden="true">
+					<div class="task-capture-highlight-copy">
+						{@html actionHighlightHtml}
 					</div>
 				</div>
+				<textarea
+					bind:this={actionInput}
+					class="form-control task-capture-input"
+					bind:value={actionDraft}
+					rows="10"
+					placeholder={`Finish stand-up notes\nCall bank for KYC update\nPick up medicines on the way home`}
+					oninput={handleActionDraftInput}
+					onkeydown={handleActionDraftKeydown}
+				></textarea>
 			</div>
-		{/if}
-</div>
-</div>
+
+			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
+				{#if actionCount}
+					<div class="badge badge-soft rounded-pill px-3 py-2">{actionCount} ready to add</div>
+				{/if}
+			</div>
+
+			<div class="d-flex justify-content-end gap-2 mt-3">
+				<button class="toolbar-button" type="button" onclick={closeActionModal}>Cancel</button>
+				<button class="toolbar-button active" type="button" onclick={submitActions} disabled={!actionCount}>
+					Add {actionCount || ''} {actionCount === 1 ? 'Action' : 'Actions'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if allActionModalOpen}
+	<div
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close add action modal"
+		onclick={closeAllActionModal}
+		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeAllActionModal()}
+	>
+		<div
+			class="pause-modal action-capture-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="add-action-title-all"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && closeAllActionModal()}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Quick Capture</div>
+					<div class="d-flex align-items-center gap-2 mt-2">
+						{#if $activeMode !== 'All Modes'}
+							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
+								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
+								{$activeMode}
+							</div>
+						{/if}
+						<h2 class="h6 mb-0" id="add-action-title-all">Add to All</h2>
+					</div>
+					<p class="soft-text small mb-0 mt-1">Lines without a date stay in All. Natural-language dates are detected automatically.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeAllActionModal}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<div class="task-capture-shell">
+				<div class="task-capture-highlight" aria-hidden="true">
+					<div class="task-capture-highlight-copy">
+						{@html allActionHighlightHtml}
+					</div>
+				</div>
+				<textarea
+					bind:this={allActionInput}
+					class="form-control task-capture-input"
+					bind:value={allActionDraft}
+					rows="10"
+					placeholder={`Ideas without a date yet\nTomorrow call dentist\nFriday pick up parcel`}
+					oninput={syncAllActionDateDismissed}
+					onkeydown={(event) => {
+						if (event.key !== 'Escape') return;
+						const selectionStart = event.currentTarget.selectionStart ?? 0;
+						const lineIndex = getLineIndexAtCursor(allActionDraft, selectionStart);
+						const line = allActionLines[lineIndex] || '';
+						const match = detectActionDate(line);
+						if (!match) return;
+						const lineStart = allActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
+						if (isCursorInsideMatch(selectionStart, match, lineStart)) {
+							allActionDismissedPhrases = allActionDismissedPhrases.map((value, index) =>
+								index === lineIndex ? match.phrase.toLowerCase() : value || ''
+							);
+							event.preventDefault();
+						}
+					}}
+				></textarea>
+			</div>
+
+			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
+				{#if allActionCount}
+					<div class="badge badge-soft rounded-pill px-3 py-2">{allActionCount} ready to add</div>
+				{/if}
+			</div>
+
+			<div class="d-flex justify-content-end gap-2 mt-3">
+				<button class="toolbar-button" type="button" onclick={closeAllActionModal}>Cancel</button>
+				<button class="toolbar-button active" type="button" onclick={submitAllActions} disabled={!allActionCount}>
+					Add {allActionCount || ''} {allActionCount === 1 ? 'Action' : 'Actions'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if upcomingActionModalOpen}
+	<div
+		class="pause-modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close add action modal"
+		onclick={closeUpcomingActionModal}
+		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeUpcomingActionModal()}
+	>
+		<div
+			class="pause-modal action-capture-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="add-action-title-upcoming"
+			tabindex="0"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.key === 'Escape' && closeUpcomingActionModal()}
+		>
+			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+				<div>
+					<div class="section-label">Quick Capture</div>
+					<div class="d-flex align-items-center gap-2 mt-2">
+						{#if $activeMode !== 'All Modes'}
+							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
+								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
+								{$activeMode}
+							</div>
+						{/if}
+						<h2 class="h6 mb-0" id="add-action-title-upcoming">Add to Upcoming</h2>
+					</div>
+					<p class="soft-text small mb-0 mt-1">Defaults to the selected day. Natural-language dates are detected automatically.</p>
+				</div>
+				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeUpcomingActionModal}>
+					<i class="fa-solid fa-xmark"></i>
+				</button>
+			</div>
+
+			<div class="task-capture-shell">
+				<div class="task-capture-highlight" aria-hidden="true">
+					<div class="task-capture-highlight-copy">
+						{@html upcomingActionHighlightHtml}
+					</div>
+				</div>
+				<textarea
+					bind:this={upcomingActionInput}
+					class="form-control task-capture-input"
+					bind:value={upcomingActionDraft}
+					rows="10"
+					placeholder={`Book dentist for Friday\nSaturday grocery restock\nPlan train tickets next week`}
+					oninput={syncUpcomingActionDateDismissed}
+					onkeydown={(event) => {
+						if (event.key !== 'Escape') return;
+						const selectionStart = event.currentTarget.selectionStart ?? 0;
+						const lineIndex = getLineIndexAtCursor(upcomingActionDraft, selectionStart);
+						const line = upcomingActionLines[lineIndex] || '';
+						const match = detectActionDate(line);
+						if (!match) return;
+						const lineStart = upcomingActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
+						if (isCursorInsideMatch(selectionStart, match, lineStart)) {
+							upcomingActionDismissedPhrases = upcomingActionDismissedPhrases.map((value, index) =>
+								index === lineIndex ? match.phrase.toLowerCase() : value || ''
+							);
+							event.preventDefault();
+						}
+					}}
+				></textarea>
+			</div>
+
+			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
+				{#if upcomingActionCount}
+					<div class="badge badge-soft rounded-pill px-3 py-2">{upcomingActionCount} ready to add</div>
+				{/if}
+			</div>
+
+			<div class="d-flex justify-content-end gap-2 mt-3">
+				<button class="toolbar-button" type="button" onclick={closeUpcomingActionModal}>Cancel</button>
+				<button class="toolbar-button active" type="button" onclick={submitUpcomingActions} disabled={!upcomingActionCount}>
+					Add {upcomingActionCount || ''} {upcomingActionCount === 1 ? 'Action' : 'Actions'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	/* Tab button styling */
@@ -1788,14 +2105,14 @@
 		transform: none !important;
 		border-color: var(--line) !important;
 	}
-	
+
 	:global(.today-subtle-mode-icon-shell) {
 		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
-	
+
 	:global(.today-subtle-mode-pulse) {
 		position: absolute;
 		top: -2px;
@@ -1804,16 +2121,15 @@
 		height: 6px;
 		background: var(--mode-color, var(--blue));
 		border-radius: 50%;
-		/* Removed neon glow */
 		animation: today-mode-pulse 2s infinite;
 	}
-	
+
 	@keyframes today-mode-pulse {
 		0% { transform: scale(1); opacity: 0.8; }
 		50% { transform: scale(1.4); opacity: 0.3; }
 		100% { transform: scale(1); opacity: 0.8; }
 	}
-	
+
 	:global(.today-subtle-mode-time) {
 		font-size: 0.72rem;
 		opacity: 0.45;
@@ -1821,7 +2137,7 @@
 		margin-left: 0.4rem;
 		letter-spacing: 0.02em;
 	}
-	
+
 	:global(.today-subtle-mode-progress) {
 		position: absolute;
 		bottom: 0;
@@ -1830,7 +2146,7 @@
 		height: 2px;
 		background: rgba(255, 255, 255, 0.03);
 	}
-	
+
 	:global(.today-time-block.active:hover) {
 		box-shadow: 0 0 16px rgba(100, 100, 100, 0.15);
 	}

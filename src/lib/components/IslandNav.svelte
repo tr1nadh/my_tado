@@ -129,6 +129,7 @@
 		opacity: 0;
 		transition: opacity 0.2s ease;
 		pointer-events: none;
+		z-index: -1;
 	}
 
 	.island-icon {
@@ -150,8 +151,7 @@
 		box-shadow: var(--shadow-soft);
 	}
 
-	.island-tab:hover:not(:disabled)::before,
-	.island-tab.active::before {
+	.island-tab:hover:not(:disabled)::before {
 		opacity: 1;
 	}
 
@@ -188,10 +188,6 @@
 		}
 
 		.island-label {
-			display: none;
-		}
-
-		.island-tab.active .island-label {
 			display: inline;
 		}
 

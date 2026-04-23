@@ -28,6 +28,15 @@
 	export let open = false;
 	export let closePanel = () => {};
 	export let isMainView = false;
+	// Page-level modal props
+	export let actionModalOpenProp = false;
+	export let actionDraftProp = '';
+	export let actionInputProp;
+	export let actionDismissedPhrasesProp = [];
+	export let openActionModal = () => {};
+	export let closeActionModal = () => {};
+	export let submitActions = () => {};
+	export let handleActionDraftInput = () => {};
 
 	let dateScope = 'next7';
 	let customStart = '';
@@ -257,18 +266,20 @@
 		counts[option.value] = count;
 		return counts;
 	}, {});
-	$: actionCount = actionDraft
+	$: effectiveActionDraft = isMainView ? actionDraftProp : actionDraft;
+	$: effectiveActionDismissedPhrases = isMainView ? actionDismissedPhrasesProp : actionDismissedPhrases;
+	$: actionCount = effectiveActionDraft
 		.split('\n')
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: showPausedJump = !showDone && filteredPausedActions.length > 0 && (!pausedSection || !pausedVisible);
-	$: actionLines = actionDraft.split('\n');
+	$: actionLines = effectiveActionDraft.split('\n');
 	$: actionHighlightHtml = actionLines
 		.map((line, index) => {
 			const match = detectActionDate(line);
 			return buildHighlightedDateHtml(
 				line,
-				match && match.phrase.toLowerCase() !== (actionDismissedPhrases[index] || '') ? match : null
+				match && match.phrase.toLowerCase() !== (effectiveActionDismissedPhrases[index] || '') ? match : null
 			);
 		})
 		.join('\n');
@@ -295,82 +306,9 @@
 		searchInput?.select();
 	}
 
-	async function openActionModal() {
-		actionModalOpen = true;
-		actionDismissedPhrases = [''];
-		await tick();
-		actionInput?.focus();
-	}
-
-	function syncActionDateDismissed() {
-		actionDismissedPhrases = actionLines.map((_, index) => actionDismissedPhrases[index] || '');
-	}
-
-	function getEffectiveActionDateMatch(line, index) {
-		const match = detectActionDate(line);
-		return match && match.phrase.toLowerCase() !== (actionDismissedPhrases[index] || '') ? match : null;
-	}
-
 	function closeSearch() {
 		searchOpen = false;
 		search = '';
-	}
-
-	function closeActionModal() {
-		actionModalOpen = false;
-		actionDraft = '';
-		actionDismissedPhrases = [];
-	}
-
-	function submitActions() {
-		const lines = actionDraft.split('\n');
-		const entries = lines
-			.map((line, index) => {
-				const match = getEffectiveActionDateMatch(line, index);
-				const title = stripDetectedDateText(line, match);
-				if (!title) return null;
-				return { title, dueDate: match?.dueDate || getDefaultUpcomingDueDate() };
-			})
-			.filter(Boolean);
-
-		if (!entries.length) return;
-
-		const currentMode = $activeMode;
-
-		for (const entry of entries) {
-			addTask({
-				title: entry.title,
-				mode: currentMode,
-				priority: 'Medium',
-				energy: 'Quick',
-				context: '',
-				dueDate: entry.dueDate
-			});
-		}
-
-		closeActionModal();
-	}
-
-	function handleActionDraftKeydown(event) {
-		if (event.key !== 'Escape') return;
-
-		const selectionStart = event.currentTarget.selectionStart ?? 0;
-		const lineIndex = getLineIndexAtCursor(actionDraft, selectionStart);
-		const line = actionLines[lineIndex] || '';
-		const match = detectActionDate(line);
-		if (!match) return;
-
-		const lineStart = actionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
-		if (isCursorInsideMatch(selectionStart, match, lineStart)) {
-			actionDismissedPhrases = actionDismissedPhrases.map((value, index) =>
-				index === lineIndex ? match.phrase.toLowerCase() : value || ''
-			);
-			event.preventDefault();
-		}
-	}
-
-	function handleActionDraftInput() {
-		syncActionDateDismissed();
 	}
 
 	function openCompletedView() {
@@ -861,83 +799,6 @@
 	</div>
 {/if}
 
-{#if actionModalOpen}
-	<div
-		class="pause-modal-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close add action modal"
-		onclick={closeActionModal}
-		onkeydown={(event) =>
-			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
-	>
-		<div
-			class="pause-modal action-capture-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="add-action-title-upcoming"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeActionModal()}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Quick Capture</div>
-					<div class="d-flex align-items-center gap-2 mt-2">
-						{#if $activeMode !== 'All Modes'}
-							<div
-								class="active-mode-badge"
-								style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}
-							>
-								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
-								{$activeMode}
-							</div>
-						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-upcoming">Add to Upcoming</h2>
-					</div>
-					<p class="soft-text small mb-0 mt-1">
-						Defaults to the selected day. Natural-language dates are detected automatically.
-					</p>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
-
-			<div class="task-capture-shell">
-				<div class="task-capture-highlight" aria-hidden="true">
-					<div class="task-capture-highlight-copy">
-						{@html actionHighlightHtml}
-					</div>
-				</div>
-				<textarea
-					bind:this={actionInput}
-					class="form-control task-capture-input"
-					bind:value={actionDraft}
-					rows="10"
-					placeholder={`Book dentist for Friday\nSaturday grocery restock\nPlan train tickets next week`}
-					oninput={handleActionDraftInput}
-					onkeydown={handleActionDraftKeydown}
-				></textarea>
-			</div>
-
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
-				{#if actionCount}
-					<div class="badge badge-soft rounded-pill px-3 py-2">{actionCount} ready to add</div>
-				{/if}
-			</div>
-
-			<div class="d-flex justify-content-end gap-2 mt-3">
-				<button class="toolbar-button" type="button" onclick={closeActionModal}>Cancel</button>
-				<button class="toolbar-button active" type="button" onclick={submitActions} disabled={!actionCount}>
-					Add {actionCount || ''} {actionCount === 1 ? 'Action' : 'Actions'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
 <style>
 	.upcoming-redesign {
 		height: 100%;
@@ -949,7 +810,7 @@
 		backdrop-filter: none;
 		border: none;
 		border-radius: 1.2rem;
-		overflow: hidden;
+		overflow: visible;
 	}
 
 	.upcoming-header {
