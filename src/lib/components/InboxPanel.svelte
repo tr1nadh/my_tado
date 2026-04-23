@@ -334,14 +334,15 @@
 		background:
 			radial-gradient(ellipse at top left, rgba(180, 83, 9, 0.08) 0%, transparent 55%),
 			var(--panel);
-		border: none;
-		border-radius: 0;
+		border: 1px solid var(--line);
+		border-top: 2px solid var(--gold);
+		border-radius: 1rem;
+		box-shadow: var(--shadow-soft);
 		overflow: visible;
 	}
 
 	.all-header {
 		padding: 0.9rem 1rem 0.78rem;
-		border-bottom: 1px solid rgba(180, 83, 9, 0.2);
 		background: rgba(255, 255, 255, 0.01);
 		display: grid;
 		gap: 0.7rem;

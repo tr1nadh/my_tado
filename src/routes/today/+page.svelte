@@ -1459,7 +1459,7 @@
 			</section>
 		{/if}
 		{#if activeIslandTab === 'All'}
-			<section class="glass-panel rounded-4 p-0 fade-up" style="flex-grow: 1; overflow: visible;">
+			<section class="fade-up" style="flex-grow: 1;">
 				<InboxPanel open={true} isMainView={true} actionModalOpen={allActionModalOpen} actionDraft={allActionDraft} actionInput={allActionInput} actionDismissedPhrases={allActionDismissedPhrases} openActionModal={openAllActionModal} closeActionModal={closeAllActionModal} submitActions={submitAllActions} handleActionDraftInput={syncAllActionDateDismissed} />
 			</section>
 		{/if}
