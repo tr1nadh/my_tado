@@ -600,13 +600,17 @@
 									<button class="icon-button task-inline-action" type="button" aria-label={`Resume ${task.title}`} onclick={() => resumeTask(task.id)}><i class="fa-solid fa-play"></i></button>
 									<button class="icon-button task-inline-action" type="button" aria-label={`Edit pause reason for ${task.title}`} onclick={() => (pauseModalOpen = true)}><i class="fa-solid fa-comment-dots"></i></button>
 								{:else}
-									<button class="icon-button task-inline-action" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
-									<button class="icon-button task-inline-action" type="button" aria-label={`Pause ${task.title}`} onclick={pauseNow}><i class="fa-solid fa-pause"></i></button>
-									<div class="task-inline-action-group" role="presentation">
-										<button class="icon-button task-inline-action" type="button" aria-label={`Set due date for ${task.title}`} onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}><i class="fa-regular fa-calendar"></i></button>
-									</div>
-									<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
-									<button class="icon-button task-inline-action" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
+									{#if task.done}
+										<button class="icon-button task-inline-action" type="button" aria-label={`Undo ${task.title}`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-rotate-left"></i></button>
+									{:else}
+										<button class="icon-button task-inline-action" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
+										<button class="icon-button task-inline-action" type="button" aria-label={`Pause ${task.title}`} onclick={pauseNow}><i class="fa-solid fa-pause"></i></button>
+										<div class="task-inline-action-group" role="presentation">
+											<button class="icon-button task-inline-action" type="button" aria-label={`Set due date for ${task.title}`} onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}><i class="fa-regular fa-calendar"></i></button>
+										</div>
+										<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
+										<button class="icon-button task-inline-action" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
+									{/if}
 								{/if}
 								<button class="icon-button task-inline-action" type="button" aria-label={`Delete ${task.title}`} onclick={() => removeTask(task.id)}><i class="fa-solid fa-trash"></i></button>
 							</div>
