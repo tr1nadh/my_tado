@@ -517,13 +517,14 @@
 	}
 
 	$: isGapHidden = $settings.modeTimeBlocksEnabled && !activeModeTimeBlock;
-	$: scopedTasks = isGapHidden 
-		? [] 
-		: $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
+	$: scopedTasks = isGapHidden
+		? []
+		: $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: backlogTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && !isToday(task.dueDate) && !isOverdue(task.dueDate));
 	$: backlogActiveTasks = backlogTasks.filter((task) => !task.paused);
-	
+	$: modeScopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
+
 	$: searchPoolTasks = [...scopedTasks, ...backlogTasks];
 	$: modalSearchedTasks = searchPoolTasks.filter((task) => {
 		const matchesSearch =
@@ -569,8 +570,8 @@
 	$: if (!focusPauseModalOpen) {
 		focusPauseReasonDraft = activeFocusTask?.pauseReason || '';
 	}
-	$: completedTasks = sortByTodayStar(scopedTasks.filter((task) => task.done));
-	$: completedTodayTasks = completedTasks.filter((task) => isToday(task.dueDate));
+	$: completedTasks = modeScopedTasks.filter((task) => task.done);
+	$: completedTodayTasks = sortByTodayStar(completedTasks);
 	$: actionCount = actionDraft
 		.split('\n')
 		.map((line) => line.trim())

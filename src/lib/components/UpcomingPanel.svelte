@@ -435,12 +435,10 @@
 
 		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('karya:mobile-search', handleMobileSearch);
-		window.addEventListener('pointerdown', handlePointerDown, true);
 		return () => {
 			if (mql && updateMql) mql.removeEventListener('change', updateMql);
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('karya:mobile-search', handleMobileSearch);
-			window.removeEventListener('pointerdown', handlePointerDown, true);
 		};
 	});
 
