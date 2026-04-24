@@ -523,7 +523,7 @@
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: backlogTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && !isToday(task.dueDate) && !isOverdue(task.dueDate));
 	$: backlogActiveTasks = backlogTasks.filter((task) => !task.paused);
-	$: modeScopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
+	$: modeScopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode));
 
 	$: searchPoolTasks = [...scopedTasks, ...backlogTasks];
 	$: modalSearchedTasks = searchPoolTasks.filter((task) => {
@@ -1338,18 +1338,15 @@
 	</div>
 	</div>
 
-	<aside class="right-dock" style="margin-top: 3.7rem;">
-	</aside>
-
 	{#if todayRailOpen && !effectiveRailPinned}
 		<div class="today-time-rail-backdrop" aria-hidden="true" onclick={closeTodayRail}></div>
 	{/if}
 
 	<div class="today-time-rail-container {effectiveRailPinned ? 'pinned' : ''}">
-		<aside
+		<div
 			class={`today-time-rail ${todayRailOpen || effectiveRailPinned ? 'open' : 'collapsed'} ${effectiveRailPinned ? 'pinned' : 'floating'}`}
-			aria-label="Today time blocks"
 			role="dialog"
+			aria-label="Today time blocks"
 			aria-modal={todayRailOpen && !effectiveRailPinned}
 			aria-hidden={!(todayRailOpen || effectiveRailPinned)}
 			tabindex="-1"
@@ -1514,7 +1511,7 @@
 					</div>
 				</div>
 			</div>
-		</aside>
+		</div>
 	</div>
 </div>
 

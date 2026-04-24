@@ -29,14 +29,11 @@
 	export let closePanel = () => {};
 	export let isMainView = false;
 	// Page-level modal props
-	export let actionModalOpenProp = false;
 	export let actionDraftProp = '';
-	export let actionInputProp;
 	export let actionDismissedPhrasesProp = [];
 	export let openActionModal = () => {};
 	export let closeActionModal = () => {};
 	export let submitActions = () => {};
-	export let handleActionDraftInput = () => {};
 
 	let dateScope = 'next7';
 	let customStart = '';
@@ -1336,7 +1333,7 @@
 		position: fixed;
 		inset: 0;
 		background: rgba(0, 0, 0, 0.55);
-		z-index: 9999;
+		z-index: 1500;
 		display: flex;
 		align-items: stretch;
 		justify-content: flex-end;

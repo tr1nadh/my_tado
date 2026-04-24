@@ -33,7 +33,7 @@
                 <i class="fa-solid {typeIcons[t.type] || 'fa-bell'}"></i>
             </div>
             <div class="toast-message">{t.message}</div>
-            <button class="toast-close" type="button" onclick={() => toast.dismiss(t.id)}>
+            <button class="toast-close" type="button" aria-label="Close toast" onclick={() => toast.dismiss(t.id)}>
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
