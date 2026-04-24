@@ -1397,33 +1397,48 @@
 	}
 
 	.sheet-options {
-		display: grid;
-		gap: 0.4rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
 	}
 
 	.sheet-option {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.65rem 0.75rem;
-		border-radius: 0.9rem;
-		border: 1px solid rgba(180, 83, 9, 0.14);
-		background: rgba(180, 83, 9, 0.04);
+		gap: 0.5rem;
+		padding: 0.5rem 0.85rem;
+		border-radius: 999px;
+		border: 1px solid rgba(180, 83, 9, 0.2);
+		background: rgba(180, 83, 9, 0.06);
 		color: var(--text);
-		font-weight: 650;
+		font-size: 0.82rem;
+		font-weight: 600;
 		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.sheet-option:hover {
+		background: rgba(180, 83, 9, 0.12);
+		border-color: rgba(245, 158, 11, 0.3);
 	}
 
 	.sheet-option.active {
-		border-color: rgba(251, 191, 36, 0.28);
-		background: rgba(245, 158, 11, 0.18);
+		border-color: rgba(245, 158, 11, 0.5);
+		background: rgba(245, 158, 11, 0.25);
+		color: var(--cyan);
 	}
 
 	.sheet-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.6rem;
+		padding: 0.1rem 0.4rem;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.08);
 		color: var(--muted);
-		font-size: 0.78rem;
-		font-weight: 800;
+		font-size: 0.72rem;
+		font-weight: 700;
 	}
 
 	.sheet-custom-range {
