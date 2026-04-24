@@ -1711,6 +1711,40 @@
 		color: var(--amber) !important; border-bottom-color: var(--amber) !important;
 	}
 
+	:global(.today-view .glass-panel) {
+		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
+		border: 1px solid rgba(252, 211, 77, 0.15) !important;
+	}
+
+	:global(.today-view .btn-brand) {
+		box-shadow: 0 4px 12px rgba(180, 83, 9, 0.25) !important;
+	}
+
+	:global(.today-view .btn-brand:hover) {
+		box-shadow: 0 8px 20px rgba(180, 83, 9, 0.4) !important;
+	}
+
+	:global(.today-view .icon-button:hover) {
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+	}
+
+	:global(.today-view .toolbar-button:hover) {
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+	}
+
+	:global(.today-view .focus-mode-trigger:hover) {
+		box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3) !important;
+	}
+
+	:global(.today-view .today-time-rail) {
+		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+		border: 1px solid rgba(252, 211, 77, 0.12) !important;
+	}
+
+	:global(.today-view .pause-modal-backdrop) {
+		backdrop-filter: blur(6px);
+	}
+
 	:global(.right-dock) {
 		position: fixed;
 		right: 1rem;

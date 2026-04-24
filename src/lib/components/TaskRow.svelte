@@ -606,7 +606,32 @@
 										<button class="icon-button task-inline-action" type="button" aria-label={`Mark ${task.title} done`} onclick={() => toggleTask(task.id)}><i class="fa-solid fa-check"></i></button>
 										<button class="icon-button task-inline-action" type="button" aria-label={`Pause ${task.title}`} onclick={pauseNow}><i class="fa-solid fa-pause"></i></button>
 										<div class="task-inline-action-group" role="presentation">
-											<button class="icon-button task-inline-action" type="button" aria-label={`Set due date for ${task.title}`} onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}><i class="fa-regular fa-calendar"></i></button>
+											<button
+												bind:this={dueDateButtonElement}
+												class="icon-button task-inline-action"
+												type="button"
+												aria-label={`Set due date for ${task.title}`}
+												onclick={() => (dueDateMenuOpen ? closeDueDateMenu() : openDueDateMenu(dueDateButtonElement))}
+											>
+												<i class="fa-regular fa-calendar"></i>
+											</button>
+											{#if dueDateMenuOpen}
+												<div
+													bind:this={dueDateMenuElement}
+													class="task-inline-submenu"
+													role="presentation"
+													onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
+													onmouseleave={() => scheduleDueDateMenuClose()}
+												>
+													<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
+													<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
+													<button class="task-inline-submenu-button" type="button" onclick={clearDueDate}>Remove date</button>
+													<button class="task-inline-submenu-button" type="button" onclick={() => {
+														closeDueDateMenu();
+														dueDateModalOpen = true;
+													}}>Later</button>
+												</div>
+											{/if}
 										</div>
 										<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
 										<button class="icon-button task-inline-action" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
@@ -654,26 +679,6 @@
 	{/if}
 
 </div>
-
-{#if dueDateMenuOpen}
-	<div
-		use:portal
-		bind:this={dueDateMenuElement}
-		class="task-inline-submenu task-inline-submenu-floating"
-		role="presentation"
-		style={`top:${dueDateMenuPosition.top}px;left:${dueDateMenuPosition.left}px;`}
-		onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
-		onmouseleave={() => scheduleDueDateMenuClose()}
-	>
-		<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
-		<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
-		<button class="task-inline-submenu-button" type="button" onclick={clearDueDate}>Remove date</button>
-		<button class="task-inline-submenu-button" type="button" onclick={() => {
-			closeDueDateMenu();
-			dueDateModalOpen = true;
-		}}>Later</button>
-	</div>
-{/if}
 
 {#if modePickerOpen}
 	<div
