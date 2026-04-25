@@ -615,23 +615,6 @@
 											>
 												<i class="fa-regular fa-calendar"></i>
 											</button>
-											{#if dueDateMenuOpen}
-												<div
-													bind:this={dueDateMenuElement}
-													class="task-inline-submenu"
-													role="presentation"
-													onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
-													onmouseleave={() => scheduleDueDateMenuClose()}
-												>
-													<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
-													<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
-													<button class="task-inline-submenu-button" type="button" onclick={clearDueDate}>Remove date</button>
-													<button class="task-inline-submenu-button" type="button" onclick={() => {
-														closeDueDateMenu();
-														dueDateModalOpen = true;
-													}}>Later</button>
-												</div>
-											{/if}
 										</div>
 										<button class="icon-button task-inline-action" type="button" aria-label={`Change mode for ${task.title}`} onclick={() => (modePickerOpen = true)}><i class="fa-solid fa-layer-group"></i></button>
 										<button class="icon-button task-inline-action" type="button" aria-label={`Edit ${task.title}`} onclick={startEditing}><i class="fa-solid fa-pen"></i></button>
@@ -679,6 +662,26 @@
 	{/if}
 
 </div>
+
+{#if dueDateMenuOpen}
+	<div
+		use:portal
+		bind:this={dueDateMenuElement}
+		class="task-inline-submenu task-inline-submenu-floating task-inline-submenu-high-z"
+		role="presentation"
+		style={`top:${dueDateMenuPosition.top}px;left:${dueDateMenuPosition.left}px;`}
+		onmouseenter={() => openDueDateMenu(dueDateButtonElement)}
+		onmouseleave={() => scheduleDueDateMenuClose()}
+	>
+		<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(0)}>Today</button>
+		<button class="task-inline-submenu-button" type="button" onclick={() => setRelativeDueDate(1)}>Tomorrow</button>
+		<button class="task-inline-submenu-button" type="button" onclick={clearDueDate}>Remove date</button>
+		<button class="task-inline-submenu-button" type="button" onclick={() => {
+			closeDueDateMenu();
+			dueDateModalOpen = true;
+		}}>Later</button>
+	</div>
+{/if}
 
 {#if modePickerOpen}
 	<div
@@ -851,3 +854,9 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.task-inline-submenu-high-z {
+		z-index: 9999 !important;
+	}
+</style>
