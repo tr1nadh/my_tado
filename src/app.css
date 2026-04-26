@@ -1329,7 +1329,7 @@ body {
 }
 
 .task-capture-input:focus {
-	background: rgba(4, 15, 29, 0.32);
+	background: var(--panel-solid);
 	box-shadow: none;
 }
 
