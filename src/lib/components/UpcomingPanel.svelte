@@ -143,7 +143,7 @@
 		filterSheetOpen = false;
 	}
 
-	function getRangeBoundsForScope(scope) {
+	function getRangeBoundsForScope(scope, explicitCustomStart = customStart, explicitCustomEnd = customEnd) {
 		const today = getTodayDate();
 		const todayKey = formatDateValue(today);
 
@@ -159,21 +159,23 @@
 		}
 
 		if (scope === 'custom') {
-			// Avoid mutating state just to compute bounds (important for counts/menus).
-			const fallbackStart = customStart || todayKey;
-			const fallbackEnd = customEnd || formatDateValue(addDays(today, 6));
-			return { start: fallbackStart, end: fallbackEnd };
+			// Use explicit parameters if provided, otherwise fall back to state
+			const fallbackStart = explicitCustomStart || customStart || todayKey;
+			const fallbackEnd = explicitCustomEnd || customEnd || formatDateValue(addDays(today, 6));
+			const bounds = { start: fallbackStart, end: fallbackEnd };
+			console.log('Custom range bounds - using explicit:', { explicitCustomStart, explicitCustomEnd, bounds });
+			return bounds;
 		}
 
 		// next7 default
 		return { start: todayKey, end: formatDateValue(addDays(today, 6)) };
 	}
 
-	function taskMatchesDateScope(task, scope = dateScope) {
+	function taskMatchesDateScope(task, scope = dateScope, explicitCustomStart = customStart, explicitCustomEnd = customEnd) {
 		const dueDate = String(task.dueDate || '').trim();
 		const todayKey = getTodayKey();
 		const tomorrowKey = formatDateValue(addDays(getTodayDate(), 1));
-		const { start, end } = getRangeBoundsForScope(scope);
+		const { start, end } = getRangeBoundsForScope(scope, explicitCustomStart, explicitCustomEnd);
 
 		if (scope === 'noDate') return !dueDate;
 		if (!dueDate) return false;
@@ -243,7 +245,7 @@
 
 	$: showModeBadge = $activeMode === 'All Modes';
 	$: normalizedSearch = search.trim().toLowerCase();
-	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && taskMatchesDateScope(task));
+	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && taskMatchesDateScope(task, dateScope, customStart, customEnd));
 	$: filteredTasks = scopedTasks.filter((task) =>
 		!normalizedSearch || task.title.toLowerCase().includes(normalizedSearch)
 	);
@@ -257,7 +259,7 @@
 	$: visibleDoneGroups = groupByDueDate(filteredCompletedTasks);
 	$: scopeCounts = dateScopeOptions.reduce((counts, option) => {
 		const matchTab = (task) => (showDone ? task.done : !task.done);
-		const count = $tasks.filter((task) => modeMatches(task, $activeMode) && matchTab(task) && taskMatchesDateScope(task, option.value)).length;
+		const count = $tasks.filter((task) => modeMatches(task, $activeMode) && matchTab(task) && taskMatchesDateScope(task, option.value, customStart, customEnd)).length;
 		counts[option.value] = count;
 		return counts;
 	}, {});
@@ -344,6 +346,7 @@
 	}
 
 	function applySheetCustomRange() {
+		console.log('applySheetCustomRange - Before:', { sheetCustomStart, sheetCustomEnd, customStart, customEnd });
 		const start = parseDateValue(sheetCustomStart);
 		const end = parseDateValue(sheetCustomEnd);
 		if (start && end && start > end) {
@@ -353,6 +356,7 @@
 		customEnd = sheetCustomEnd;
 		dateScope = 'custom';
 		filterSheetOpen = false;
+		console.log('applySheetCustomRange - After:', { customStart, customEnd, dateScope });
 	}
 
 	function applySheetFilters() {
