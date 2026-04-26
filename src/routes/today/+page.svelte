@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import InboxPanel from '$lib/components/InboxPanel.svelte';
+	import QuickCaptureModal from '$lib/components/QuickCaptureModal.svelte';
 	import SubtleHeader from '$lib/components/SubtleHeader.svelte';
 	import TaskRow from '$lib/components/TaskRow.svelte';
 	import UpcomingPanel from '$lib/components/UpcomingPanel.svelte';
@@ -1829,246 +1830,81 @@
 	</div>
 {/if}
 
-{#if actionModalOpen}
-	<div
-		class="pause-modal-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close add action modal"
-		onclick={closeActionModal}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeActionModal()}
-	>
-		<div
-			class="pause-modal action-capture-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="add-action-title-today"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeActionModal()}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Quick Capture</div>
-					<div class="d-flex align-items-center gap-2 mt-2">
-						{#if $activeMode !== 'All Modes'}
-							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
-								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
-								{$activeMode}
-							</div>
-						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-today">Add Actions</h2>
-					</div>
-					<p class="soft-text small mb-0 mt-1">One line per action. The current mode will be used automatically.</p>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeActionModal}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
+<QuickCaptureModal
+	open={actionModalOpen}
+	close={closeActionModal}
+	submit={submitActions}
+	draft={actionDraft}
+	highlightHtml={actionHighlightHtml}
+	actionCount={actionCount}
+	activeMode={$activeMode}
+	modeColorMap={modeColorMap}
+	modeIcons={$modeIcons}
+	inputRef={actionInput}
+	onInput={handleActionDraftInput}
+	onKeydown={handleActionDraftKeydown}
+	ariaLabelledBy="add-action-title-today"
+/>
 
-			<div class="task-capture-shell">
-				<div class="task-capture-highlight" aria-hidden="true">
-					<div class="task-capture-highlight-copy">
-						{@html actionHighlightHtml}
-					</div>
-				</div>
-				<textarea
-					bind:this={actionInput}
-					class="form-control task-capture-input"
-					bind:value={actionDraft}
-					rows="10"
-					placeholder={`Finish stand-up notes\nCall bank for KYC update\nPick up medicines on the way home`}
-					oninput={handleActionDraftInput}
-					onkeydown={handleActionDraftKeydown}
-				></textarea>
-			</div>
+<QuickCaptureModal
+	open={allActionModalOpen}
+	close={closeAllActionModal}
+	submit={submitAllActions}
+	draft={allActionDraft}
+	highlightHtml={allActionHighlightHtml}
+	actionCount={allActionCount}
+	activeMode={$activeMode}
+	modeColorMap={modeColorMap}
+	modeIcons={$modeIcons}
+	inputRef={allActionInput}
+	onInput={syncAllActionDateDismissed}
+	onKeydown={(event) => {
+		if (event.key !== 'Escape') return;
+		const selectionStart = event.currentTarget.selectionStart ?? 0;
+		const lineIndex = getLineIndexAtCursor(allActionDraft, selectionStart);
+		const line = allActionLines[lineIndex] || '';
+		const match = detectActionDate(line);
+		if (!match) return;
+		const lineStart = allActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
+		if (isCursorInsideMatch(selectionStart, match, lineStart)) {
+			allActionDismissedPhrases = allActionDismissedPhrases.map((value, index) =>
+				index === lineIndex ? match.phrase.toLowerCase() : value || ''
+			);
+			event.preventDefault();
+		}
+	}}
+	ariaLabelledBy="add-action-title-all"
+/>
 
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
-				{#if actionCount}
-					<div class="badge badge-soft rounded-pill px-3 py-2">{actionCount} ready to add</div>
-				{/if}
-			</div>
-
-			<div class="d-flex justify-content-end gap-2 mt-3">
-				<button class="toolbar-button" type="button" onclick={closeActionModal}>Cancel</button>
-				<button class="toolbar-button active" type="button" onclick={submitActions} disabled={!actionCount}>
-					Add {actionCount || ''} {actionCount === 1 ? 'Action' : 'Actions'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
-{#if allActionModalOpen}
-	<div
-		class="pause-modal-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close add action modal"
-		onclick={closeAllActionModal}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeAllActionModal()}
-	>
-		<div
-			class="pause-modal action-capture-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="add-action-title-all"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeAllActionModal()}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Quick Capture</div>
-					<div class="d-flex align-items-center gap-2 mt-2">
-						{#if $activeMode !== 'All Modes'}
-							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
-								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
-								{$activeMode}
-							</div>
-						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-all">Add to All</h2>
-					</div>
-					<p class="soft-text small mb-0 mt-1">Lines without a date stay in All. Natural-language dates are detected automatically.</p>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeAllActionModal}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
-
-			<div class="task-capture-shell">
-				<div class="task-capture-highlight" aria-hidden="true">
-					<div class="task-capture-highlight-copy">
-						{@html allActionHighlightHtml}
-					</div>
-				</div>
-				<textarea
-					bind:this={allActionInput}
-					class="form-control task-capture-input"
-					bind:value={allActionDraft}
-					rows="10"
-					placeholder={`Ideas without a date yet\nTomorrow call dentist\nFriday pick up parcel`}
-					oninput={syncAllActionDateDismissed}
-					onkeydown={(event) => {
-						if (event.key !== 'Escape') return;
-						const selectionStart = event.currentTarget.selectionStart ?? 0;
-						const lineIndex = getLineIndexAtCursor(allActionDraft, selectionStart);
-						const line = allActionLines[lineIndex] || '';
-						const match = detectActionDate(line);
-						if (!match) return;
-						const lineStart = allActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
-						if (isCursorInsideMatch(selectionStart, match, lineStart)) {
-							allActionDismissedPhrases = allActionDismissedPhrases.map((value, index) =>
-								index === lineIndex ? match.phrase.toLowerCase() : value || ''
-							);
-							event.preventDefault();
-						}
-					}}
-				></textarea>
-			</div>
-
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
-				{#if allActionCount}
-					<div class="badge badge-soft rounded-pill px-3 py-2">{allActionCount} ready to add</div>
-				{/if}
-			</div>
-
-			<div class="d-flex justify-content-end gap-2 mt-3">
-				<button class="toolbar-button" type="button" onclick={closeAllActionModal}>Cancel</button>
-				<button class="toolbar-button active" type="button" onclick={submitAllActions} disabled={!allActionCount}>
-					Add {allActionCount || ''} {allActionCount === 1 ? 'Action' : 'Actions'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
-{#if upcomingActionModalOpen}
-	<div
-		class="pause-modal-backdrop"
-		role="button"
-		tabindex="0"
-		aria-label="Close add action modal"
-		onclick={closeUpcomingActionModal}
-		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeUpcomingActionModal()}
-	>
-		<div
-			class="pause-modal action-capture-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="add-action-title-upcoming"
-			tabindex="0"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.key === 'Escape' && closeUpcomingActionModal()}
-		>
-			<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-				<div>
-					<div class="section-label">Quick Capture</div>
-					<div class="d-flex align-items-center gap-2 mt-2">
-						{#if $activeMode !== 'All Modes'}
-							<div class="active-mode-badge" style={`background: ${modeColorMap[$activeMode] || modeColorMap.Default}; padding: 0.2rem 0.6rem; font-size: 0.75rem;`}>
-								<i class="fa-solid {getModeIcon($activeMode, $modeIcons)}"></i>
-								{$activeMode}
-							</div>
-						{/if}
-						<h2 class="h6 mb-0" id="add-action-title-upcoming">Add to Upcoming</h2>
-					</div>
-					<p class="soft-text small mb-0 mt-1">Defaults to the selected day. Natural-language dates are detected automatically.</p>
-				</div>
-				<button class="icon-button" type="button" aria-label="Close add action modal" onclick={closeUpcomingActionModal}>
-					<i class="fa-solid fa-xmark"></i>
-				</button>
-			</div>
-
-			<div class="task-capture-shell">
-				<div class="task-capture-highlight" aria-hidden="true">
-					<div class="task-capture-highlight-copy">
-						{@html upcomingActionHighlightHtml}
-					</div>
-				</div>
-				<textarea
-					bind:this={upcomingActionInput}
-					class="form-control task-capture-input"
-					bind:value={upcomingActionDraft}
-					rows="10"
-					placeholder={`Book dentist for Friday\nSaturday grocery restock\nPlan train tickets next week`}
-					oninput={syncUpcomingActionDateDismissed}
-					onkeydown={(event) => {
-						if (event.key !== 'Escape') return;
-						const selectionStart = event.currentTarget.selectionStart ?? 0;
-						const lineIndex = getLineIndexAtCursor(upcomingActionDraft, selectionStart);
-						const line = upcomingActionLines[lineIndex] || '';
-						const match = detectActionDate(line);
-						if (!match) return;
-						const lineStart = upcomingActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
-						if (isCursorInsideMatch(selectionStart, match, lineStart)) {
-							upcomingActionDismissedPhrases = upcomingActionDismissedPhrases.map((value, index) =>
-								index === lineIndex ? match.phrase.toLowerCase() : value || ''
-							);
-							event.preventDefault();
-						}
-					}}
-				></textarea>
-			</div>
-
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-				<div class="soft-text small">Press `Enter` for a new line. Press `Ctrl/Cmd + Enter` to add all.</div>
-				{#if upcomingActionCount}
-					<div class="badge badge-soft rounded-pill px-3 py-2">{upcomingActionCount} ready to add</div>
-				{/if}
-			</div>
-
-			<div class="d-flex justify-content-end gap-2 mt-3">
-				<button class="toolbar-button" type="button" onclick={closeUpcomingActionModal}>Cancel</button>
-				<button class="toolbar-button active" type="button" onclick={submitUpcomingActions} disabled={!upcomingActionCount}>
-					Add {upcomingActionCount || ''} {upcomingActionCount === 1 ? 'Action' : 'Actions'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<QuickCaptureModal
+	open={upcomingActionModalOpen}
+	close={closeUpcomingActionModal}
+	submit={submitUpcomingActions}
+	draft={upcomingActionDraft}
+	highlightHtml={upcomingActionHighlightHtml}
+	actionCount={upcomingActionCount}
+	activeMode={$activeMode}
+	modeColorMap={modeColorMap}
+	modeIcons={$modeIcons}
+	inputRef={upcomingActionInput}
+	onInput={syncUpcomingActionDateDismissed}
+	onKeydown={(event) => {
+		if (event.key !== 'Escape') return;
+		const selectionStart = event.currentTarget.selectionStart ?? 0;
+		const lineIndex = getLineIndexAtCursor(upcomingActionDraft, selectionStart);
+		const line = upcomingActionLines[lineIndex] || '';
+		const match = detectActionDate(line);
+		if (!match) return;
+		const lineStart = upcomingActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
+		if (isCursorInsideMatch(selectionStart, match, lineStart)) {
+			upcomingActionDismissedPhrases = upcomingActionDismissedPhrases.map((value, index) =>
+				index === lineIndex ? match.phrase.toLowerCase() : value || ''
+			);
+			event.preventDefault();
+		}
+	}}
+	ariaLabelledBy="add-action-title-upcoming"
+/>
 
 <style>
 	/* Tab button styling */
