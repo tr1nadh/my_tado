@@ -4,6 +4,19 @@ All notable changes to Karya will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses semantic versioning in a practical way for this project.
 
+## [1.1.2] - 2026-04-30
+
+### Changed
+- Updated the app layout and navigation structure (including removal of the old Inbox page).
+- Continued theme and UI refinements across core surfaces.
+
+### Fixed
+- Custom range date filter issues.
+- Due date UI issues.
+- Completed action options and filters.
+- Drag, star, and mode-blocking related bugs.
+- Vercel deployment regression.
+
 ## [1.1.1] - 2026-04-14
 
 ### Changed

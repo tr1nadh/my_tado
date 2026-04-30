@@ -1,6 +1,6 @@
 [package]
 name = "karya"
-version = "1.1.1"
+version = "1.1.2"
 description = "Karya desktop app"
 authors = ["Karya"]
 edition = "2021"
