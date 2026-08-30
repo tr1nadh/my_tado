@@ -4,6 +4,11 @@ All notable changes to Karya will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses semantic versioning in a practical way for this project.
 
+## [1.1.3] - 2026-08-30
+
+### Added
+- Implemented landing page for Karya application.
+
 ## [1.1.2] - 2026-04-30
 
 ### Changed
