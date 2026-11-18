@@ -1,4 +1,5 @@
 <script>
+	import { modalFocus } from '$lib/modalFocus';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -9,8 +10,8 @@
 	import TimeBlock from '$lib/components/TimeBlock.svelte';
 	import UpcomingPanel from '$lib/components/UpcomingPanel.svelte';
 	import ZenProgress from '$lib/components/ZenProgress.svelte';
+	import { buildCaptureHighlightHtml, parseActionShortcuts } from '$lib/actionShortcuts';
 	import {
-	  buildHighlightedDateHtml,
 	  detectActionDate,
 	  getLineIndexAtCursor,
 	  isCursorInsideMatch,
@@ -92,15 +93,7 @@
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: allActionLines = allActionDraft.split('\n');
-	$: allActionHighlightHtml = allActionLines
-		.map((line, index) => {
-			const match = detectActionDate(line);
-			return buildHighlightedDateHtml(
-				line,
-				match && match.phrase.toLowerCase() !== (allActionDismissedPhrases[index] || '') ? match : null
-			);
-		})
-		.join('\n');
+	$: allActionHighlightHtml = buildCaptureHighlightHtml(allActionDraft, allActionDismissedPhrases, $modes);
 
 	// Upcoming modal reactive values
 	$: upcomingActionCount = upcomingActionDraft
@@ -108,15 +101,7 @@
 		.map((line) => line.trim())
 		.filter(Boolean).length;
 	$: upcomingActionLines = upcomingActionDraft.split('\n');
-	$: upcomingActionHighlightHtml = upcomingActionLines
-		.map((line, index) => {
-			const match = detectActionDate(line);
-			return buildHighlightedDateHtml(
-				line,
-				match && match.phrase.toLowerCase() !== (upcomingActionDismissedPhrases[index] || '') ? match : null
-			);
-		})
-		.join('\n');
+	$: upcomingActionHighlightHtml = buildCaptureHighlightHtml(upcomingActionDraft, upcomingActionDismissedPhrases, $modes);
 	let modeBlockInterval;
 	let timelineUpdateInterval;
 	let railCompact = browser ? window.matchMedia('(max-width: 1199px)').matches : false;
@@ -439,7 +424,7 @@
 
 		const activeBlock = getActiveModeTimeBlock($settings, new Date());
 		if (!activeBlock) {
-			if (lastAutoSwitchedBlockId !== null || $activeMode !== 'All Modes') {
+			if (lastAutoSwitchedBlockId !== null) {
 				activeMode.set('All Modes');
 				lastAutoSwitchedBlockId = null;
 			}
@@ -579,10 +564,7 @@
 		window.addEventListener('pointercancel', stopTimeBlockDrag);
 	}
 
-	$: isGapHidden = $settings.modeTimeBlocksEnabled && !activeModeTimeBlock;
-	$: scopedTasks = isGapHidden 
-		? [] 
-		: $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
+	$: scopedTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: allTodayScopedTasks = $tasks.filter((task) => !task.done && (isToday(task.dueDate) || isOverdue(task.dueDate)));
 	$: backlogTasks = $tasks.filter((task) => modeMatches(task, $activeMode) && !task.done && !isToday(task.dueDate) && !isOverdue(task.dueDate));
 	$: backlogActiveTasks = backlogTasks.filter((task) => !task.paused);
@@ -781,15 +763,7 @@
 	// 	syncActiveModeToBlock();
 	// }
 	$: actionLines = actionDraft.split('\n');
-	$: actionHighlightHtml = actionLines
-		.map((line, index) => {
-			const match = detectActionDate(line);
-			return buildHighlightedDateHtml(
-				line,
-				match && match.phrase.toLowerCase() !== (actionDismissedPhrases[index] || '') ? match : null
-			);
-		})
-		.join('\n');
+	$: actionHighlightHtml = buildCaptureHighlightHtml(actionDraft, actionDismissedPhrases, $modes);
 
 	$: {
 		pausedObserver?.disconnect();
@@ -824,11 +798,6 @@
 		actionDismissedPhrases = actionLines.map((_, index) => actionDismissedPhrases[index] || '');
 	}
 
-	function getEffectiveActionDateMatch(line, index) {
-		const match = detectActionDate(line);
-		return match && match.phrase.toLowerCase() !== (actionDismissedPhrases[index] || '') ? match : null;
-	}
-
 	function closeSearch() {
 		searchOpen = false;
 		search = '';
@@ -841,35 +810,39 @@
 	}
 
 	function submitActions() {
-		const lines = actionDraft.split('\n');
-		const entries = lines
+		submitCapture(actionDraft, actionDismissedPhrases, todayDate, closeActionModal);
+	}
+
+	function submitCapture(draft, dismissedPhrases, defaultDueDate, close) {
+		const entries = draft.split('\n')
 			.map((line, index) => {
-				const match = getEffectiveActionDateMatch(line, index);
-				const title = stripDetectedDateText(line, match);
+				const { text, mode, todayStar } = parseActionShortcuts(line, $modes);
+				const detected = detectActionDate(text);
+				const match = detected?.phrase.toLowerCase() === dismissedPhrases[index] ? null : detected;
+				const stripped = stripDetectedDateText(text, match);
+				const title = text === line ? stripped : stripped.replace(/\s{2,}/g, ' ');
 				if (!title) return null;
 				return {
 					title,
-					dueDate: match?.dueDate || todayDate
+					mode: mode ?? $activeMode,
+					todayStar,
+					dueDate: match?.dueDate || defaultDueDate
 				};
 			})
 			.filter(Boolean);
 
 		if (!entries.length) return;
 
-		const currentMode = $activeMode;
-
 		for (const entry of entries) {
 			addTask({
-				title: entry.title,
-				mode: currentMode,
+				...entry,
 				priority: 'Medium',
 				energy: 'Quick',
-				context: '',
-				dueDate: entry.dueDate
+				context: ''
 			});
 		}
 
-		closeActionModal();
+		close();
 	}
 
 	// All tab modal functions
@@ -887,41 +860,11 @@
 	}
 
 	function submitAllActions() {
-		const lines = allActionDraft.split('\n');
-		const entries = lines
-			.map((line, index) => {
-				const match = getEffectiveAllActionDateMatch(line, index);
-				const title = stripDetectedDateText(line, match);
-				if (!title) return null;
-				return { title, dueDate: match?.dueDate || '' };
-			})
-			.filter(Boolean);
-
-		if (!entries.length) return;
-
-		const currentMode = $activeMode;
-
-		for (const entry of entries) {
-			addTask({
-				title: entry.title,
-				mode: currentMode,
-				priority: 'Medium',
-				energy: 'Quick',
-				context: '',
-				dueDate: entry.dueDate
-			});
-		}
-
-		closeAllActionModal();
+		submitCapture(allActionDraft, allActionDismissedPhrases, '', closeAllActionModal);
 	}
 
 	function syncAllActionDateDismissed() {
 		allActionDismissedPhrases = allActionDraft.split('\n').map((_, index) => allActionDismissedPhrases[index] || '');
-	}
-
-	function getEffectiveAllActionDateMatch(line, index) {
-		const match = detectActionDate(line);
-		return match && match.phrase.toLowerCase() !== (allActionDismissedPhrases[index] || '') ? match : null;
 	}
 
 	// Upcoming tab modal functions
@@ -939,41 +882,11 @@
 	}
 
 	function submitUpcomingActions() {
-		const lines = upcomingActionDraft.split('\n');
-		const entries = lines
-			.map((line, index) => {
-				const match = getEffectiveUpcomingActionDateMatch(line, index);
-				const title = stripDetectedDateText(line, match);
-				if (!title) return null;
-				return { title, dueDate: match?.dueDate || todayDate };
-			})
-			.filter(Boolean);
-
-		if (!entries.length) return;
-
-		const currentMode = $activeMode;
-
-		for (const entry of entries) {
-			addTask({
-				title: entry.title,
-				mode: currentMode,
-				priority: 'Medium',
-				energy: 'Quick',
-				context: '',
-				dueDate: entry.dueDate
-			});
-		}
-
-		closeUpcomingActionModal();
+		submitCapture(upcomingActionDraft, upcomingActionDismissedPhrases, todayDate, closeUpcomingActionModal);
 	}
 
 	function syncUpcomingActionDateDismissed() {
 		upcomingActionDismissedPhrases = upcomingActionDraft.split('\n').map((_, index) => upcomingActionDismissedPhrases[index] || '');
-	}
-
-	function getEffectiveUpcomingActionDateMatch(line, index) {
-		const match = detectActionDate(line);
-		return match && match.phrase.toLowerCase() !== (upcomingActionDismissedPhrases[index] || '') ? match : null;
 	}
 
 	function handleActionDraftKeydown(event) {
@@ -982,7 +895,7 @@
 		const selectionStart = event.currentTarget.selectionStart ?? 0;
 		const lineIndex = getLineIndexAtCursor(actionDraft, selectionStart);
 		const line = actionLines[lineIndex] || '';
-		const match = detectActionDate(line);
+		const match = detectActionDate(parseActionShortcuts(line, $modes).text);
 		if (!match) return;
 
 		const lineStart = actionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
@@ -1117,6 +1030,8 @@
 		}
 
 		function handleKeydown(event) {
+			if (event.defaultPrevented || event.isComposing) return;
+			if (allActionModalOpen || upcomingActionModalOpen) return;
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
 					event.preventDefault();
@@ -1128,7 +1043,8 @@
 				}
 				return;
 			}
-			if (event.ctrlKey && event.key.toLowerCase() === 'f') {
+			if (activeIslandTab !== 'Today') return;
+			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
 				openSearch();
 			}
@@ -1150,7 +1066,7 @@
 		}
 
 		function handleMobileSearch() {
-			openSearch();
+			if (activeIslandTab === 'Today') openSearch();
 		}
 
 		window.addEventListener('keydown', handleKeydown);
@@ -1362,12 +1278,7 @@
 										{/each}
 									{:else}
 										<div class="empty-state">
-											{#if isGapHidden}
-												<i class="fa-solid fa-lock mb-2 d-block opacity-25" style="font-size: 1.5rem;"></i>
-												Actions are hidden during scheduled gaps.
-											{:else}
-												No actions for today.
-											{/if}
+											No actions for today. Use Add Action to plan your day.
 										</div>
 									{/if}
 								</div>
@@ -1739,7 +1650,7 @@
 		onkeydown={(event) => event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
 	>
 		<div
-			class="pause-modal search-modal"
+			class="pause-modal search-modal" use:modalFocus
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="search-actions-title-today"
@@ -1797,13 +1708,13 @@
 	open={actionModalOpen}
 	close={closeActionModal}
 	submit={submitActions}
-	draft={actionDraft}
+	bind:draft={actionDraft}
 	highlightHtml={actionHighlightHtml}
 	actionCount={actionCount}
 	activeMode={$activeMode}
 	modeColorMap={modeColorMap}
 	modeIcons={$modeIcons}
-	inputRef={actionInput}
+	bind:inputRef={actionInput}
 	onInput={handleActionDraftInput}
 	onKeydown={handleActionDraftKeydown}
 	ariaLabelledBy="add-action-title-today"
@@ -1813,20 +1724,20 @@
 	open={allActionModalOpen}
 	close={closeAllActionModal}
 	submit={submitAllActions}
-	draft={allActionDraft}
+	bind:draft={allActionDraft}
 	highlightHtml={allActionHighlightHtml}
 	actionCount={allActionCount}
 	activeMode={$activeMode}
 	modeColorMap={modeColorMap}
 	modeIcons={$modeIcons}
-	inputRef={allActionInput}
+	bind:inputRef={allActionInput}
 	onInput={syncAllActionDateDismissed}
 	onKeydown={(event) => {
 		if (event.key !== 'Escape') return;
 		const selectionStart = event.currentTarget.selectionStart ?? 0;
 		const lineIndex = getLineIndexAtCursor(allActionDraft, selectionStart);
 		const line = allActionLines[lineIndex] || '';
-		const match = detectActionDate(line);
+		const match = detectActionDate(parseActionShortcuts(line, $modes).text);
 		if (!match) return;
 		const lineStart = allActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
 		if (isCursorInsideMatch(selectionStart, match, lineStart)) {
@@ -1843,20 +1754,20 @@
 	open={upcomingActionModalOpen}
 	close={closeUpcomingActionModal}
 	submit={submitUpcomingActions}
-	draft={upcomingActionDraft}
+	bind:draft={upcomingActionDraft}
 	highlightHtml={upcomingActionHighlightHtml}
 	actionCount={upcomingActionCount}
 	activeMode={$activeMode}
 	modeColorMap={modeColorMap}
 	modeIcons={$modeIcons}
-	inputRef={upcomingActionInput}
+	bind:inputRef={upcomingActionInput}
 	onInput={syncUpcomingActionDateDismissed}
 	onKeydown={(event) => {
 		if (event.key !== 'Escape') return;
 		const selectionStart = event.currentTarget.selectionStart ?? 0;
 		const lineIndex = getLineIndexAtCursor(upcomingActionDraft, selectionStart);
 		const line = upcomingActionLines[lineIndex] || '';
-		const match = detectActionDate(line);
+		const match = detectActionDate(parseActionShortcuts(line, $modes).text);
 		if (!match) return;
 		const lineStart = upcomingActionLines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
 		if (isCursorInsideMatch(selectionStart, match, lineStart)) {

@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -11,6 +11,8 @@ const tauriConfigPath = join(rootDir, 'src-tauri', 'tauri.conf.json');
 const bundleDir = join(rootDir, 'src-tauri', 'target', 'release', 'bundle');
 const signingEnvPath = join(homedir(), '.tauri', 'karya-signing.env');
 const githubRepo = 'https://github.com/tr1nadh/my_tado';
+const windowsTarget = 'x86_64-pc-windows-msvc';
+const rustToolchain = 'beta-x86_64-pc-windows-msvc';
 
 function parseEnvFile(filePath) {
 	const raw = readFileSync(filePath, 'utf8');
@@ -99,6 +101,10 @@ async function main() {
 	}
 
 	const signingEnv = parseEnvFile(signingEnvPath);
+	const rustcRealPath = execFileSync('rustup', ['which', 'rustc', '--toolchain', 'beta'], {
+		cwd: rootDir,
+		encoding: 'utf8'
+	}).trim();
 	const privateKeyPath = signingEnv.TAURI_SIGNING_PRIVATE_KEY_PATH;
 	if (!privateKeyPath || !existsSync(privateKeyPath)) {
 		throw new Error(`Missing private signing key at ${privateKeyPath || 'unknown path'}.`);
@@ -107,9 +113,11 @@ async function main() {
 	const version = tauriConfig.version;
 	const tag = `v${version}`;
 
-	await run('npx', ['tauri', 'build'], {
+	await run('npx', ['tauri', 'build', '--target', windowsTarget], {
 		env: {
 			...process.env,
+			RUSTUP_TOOLCHAIN: rustToolchain,
+			RUSTC_REAL_PATH: rustcRealPath,
 			...signingEnv,
 			TAURI_SIGNING_PRIVATE_KEY: readFileSync(privateKeyPath, 'utf8'),
 			TAURI_SIGNING_PRIVATE_KEY_PASSWORD: signingEnv.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || ''

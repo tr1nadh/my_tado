@@ -9,7 +9,7 @@ function toLocalIsoDate(date) {
 	return new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
 	return String(value)
 		.replaceAll('&', '&amp;')
 		.replaceAll('<', '&lt;')
@@ -55,7 +55,7 @@ export function stripDetectedDateText(text, match) {
 	const source = String(text || '');
 	const before = source.slice(0, match.start);
 	const after = source.slice(match.end);
-	const trimmedBefore = before.replace(/\s*(by|on|at|before|after|around|for)\s*$/i, ' ');
+	const trimmedBefore = before.replace(/\b(by|on|at|before|after|around|for)\s*$/i, ' ');
 	const combined = `${trimmedBefore}${after}`
 		.replace(/\s{2,}/g, ' ')
 		.replace(/\s+([,.;:!?])/g, '$1')

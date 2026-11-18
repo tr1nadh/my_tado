@@ -1,5 +1,6 @@
 <script>
 	import { checkForDesktopUpdates, desktopUpdate, isDesktopUpdaterAvailable } from '$lib/desktopUpdater';
+	import { toast } from '$lib/toast';
 	import { 
 		activeMode,
 		createMode,
@@ -9,6 +10,7 @@
 		modes,
 		moveModeToIndex,
 		renameMode,
+		resetAppData,
 		settings, 
 		todayStarOptions, 
 		updateSettings 
@@ -19,7 +21,8 @@
 	const desktopDownloadUrl = 'https://github.com/tr1nadh/my_tado/releases/latest';
 	const desktopReleasesUrl = 'https://github.com/tr1nadh/my_tado/releases';
 
-	let currentTab = $state('stars'); // 'stars', 'modes', 'about'
+	let currentTab = $state('stars');
+	let resetDialog = $state();
 	let editingMode = $state(null);
 	let editName = $state('');
 	let draggedMode = $state(null);
@@ -53,6 +56,12 @@
 		} else {
 			modeError = 'Cannot delete the last custom mode.';
 		}
+	}
+
+	function confirmReset() {
+		resetAppData();
+		resetDialog.close();
+		toast.show('App data reset.', 'success');
 	}
 
 	function handleDragStart(event, mode) {
@@ -106,6 +115,12 @@
 				onclick={() => currentTab = 'modes'}
 			>
 				Modes
+			</button>
+			<button
+				class="settings-tab {currentTab === 'other' ? 'active' : ''}"
+				onclick={() => currentTab = 'other'}
+			>
+				Other
 			</button>
 			<button 
 				class="settings-tab {currentTab === 'about' ? 'active' : ''}" 
@@ -284,6 +299,14 @@
 					<div class="mode-editor-error mt-3">{modeError}</div>
 				{/if}
 			</div>
+		{:else if currentTab === 'other'}
+			<div class="settings-card fade-up d-flex flex-wrap align-items-center justify-content-between gap-3">
+				<div class="settings-copy">
+					<div class="settings-title">Reset app data</div>
+					<p class="soft-text mb-0">Delete all actions, custom modes, custom icons, saved time blocks, and preferences.</p>
+				</div>
+				<button class="toolbar-button text-danger" type="button" onclick={() => resetDialog.showModal()}>Reset</button>
+			</div>
 		{:else if currentTab === 'about'}
 			<div class="settings-card fade-up about-karya-stack">
 				<div class="settings-title mb-3">About Karya</div>
@@ -387,3 +410,23 @@
 		{/if}
 	</div>
 </section>
+
+<dialog class="pause-modal reset-dialog" bind:this={resetDialog} aria-labelledby="reset-title" aria-describedby="reset-description">
+	<h2 class="h6" id="reset-title">Reset app data?</h2>
+	<p class="soft-text" id="reset-description">This permanently deletes your saved data and restores the app defaults.</p>
+	<div class="d-flex justify-content-end gap-2">
+		<button class="toolbar-button" type="button" onclick={() => resetDialog.close()}>Cancel</button>
+		<button class="toolbar-button text-danger" type="button" onclick={confirmReset}>Reset</button>
+	</div>
+</dialog>
+
+<style>
+	.reset-dialog {
+		width: min(calc(100% - 2rem), 32rem);
+		color: var(--text);
+	}
+
+	.reset-dialog::backdrop {
+		background: rgba(15, 13, 12, 0.72);
+	}
+</style>

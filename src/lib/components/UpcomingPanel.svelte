@@ -1,4 +1,5 @@
 <script>
+	import { modalFocus } from '$lib/modalFocus';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -403,6 +404,7 @@
 		}
 
 		function handleKeydown(event) {
+			if (event.defaultPrevented || event.isComposing) return;
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
 					event.preventDefault();
@@ -417,7 +419,7 @@
 				return;
 			}
 
-			if (event.ctrlKey && event.key.toLowerCase() === 'f') {
+			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
 				openSearch();
 			}
@@ -650,7 +652,7 @@
 			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeFilterSheet()}
 	>
 		<div
-			class="upcoming-filter-sheet"
+			class="upcoming-filter-sheet" use:modalFocus
 			role="dialog"
 			aria-modal="true"
 			aria-label="Upcoming filters"
@@ -728,7 +730,7 @@
 			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && (customRangeModalOpen = false)}
 	>
 		<div
-			class="pause-modal custom-range-modal"
+			class="pause-modal custom-range-modal" use:modalFocus
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="custom-range-title"

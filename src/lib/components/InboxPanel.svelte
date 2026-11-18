@@ -1,4 +1,5 @@
 <script>
+	import { modalFocus } from '$lib/modalFocus';
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -103,6 +104,7 @@
 
 	onMount(() => {
 		function handleKeydown(event) {
+			if (event.defaultPrevented || event.isComposing) return;
 			if (actionModalOpen) {
 				if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
 					event.preventDefault();
@@ -117,7 +119,7 @@
 				return;
 			}
 
-			if (event.ctrlKey && event.key.toLowerCase() === 'f') {
+			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
 				openSearch();
 			}
@@ -278,7 +280,7 @@
 			event.target === event.currentTarget && ['Enter', ' ', 'Escape'].includes(event.key) && closeSearch()}
 	>
 		<div
-			class="pause-modal search-modal"
+			class="pause-modal search-modal" use:modalFocus
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="search-actions-title-inbox"

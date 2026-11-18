@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import { activeMode, getModeIcon, modeColorMap, modeIcons, modes, updateSettings, settings } from '$lib/tasks';
 	import { toast } from '$lib/toast';
 	import GlobalClock from './GlobalClock.svelte';
@@ -8,6 +9,7 @@
 
 	let modeDropdownOpen = $state(false);
 	let modeDropdownTimer;
+	onDestroy(() => clearTimeout(modeDropdownTimer));
 
 	function openModeDropdown() {
 		if (modeDropdownTimer) clearTimeout(modeDropdownTimer);
@@ -35,13 +37,14 @@
 	<div
 		class="today-subtle-selector-shell {modeDropdownOpen ? 'open' : ''}"
 		role="presentation"
-		onmouseenter={openModeDropdown}
 		onmouseleave={closeModeDropdownSoon}
 	>
 		<button 
 			class="today-subtle-mode-display {activeModeTimeBlock ? 'active' : ''}" 
 			type="button"
 			aria-expanded={modeDropdownOpen}
+			aria-controls="mode-picker"
+			onkeydown={(event) => { if (event.key === 'Escape') modeDropdownOpen = false; }}
 			style={activeModeTimeBlock ? `--mode-color: ${modeColorMap[activeModeTimeBlock.mode] || modeColorMap.Default};` : ''}
 			onclick={() => (modeDropdownOpen = !modeDropdownOpen)}
 		>
@@ -66,7 +69,8 @@
 		</button>
 
 		<div
-			class="today-subtle-modes-dropdown {$settings.modeTimeBlocksEnabled ? 'locked' : ''}"
+			id="mode-picker"
+			class="today-subtle-modes-dropdown {activeModeTimeBlock ? 'locked' : ''}"
 			role="presentation"
 			onmouseenter={openModeDropdown}
 			onmouseleave={closeModeDropdownSoon}
@@ -75,19 +79,18 @@
 				<button 
 					class="mode-pill" 
 					onclick={() => { 
-						if ($settings.modeTimeBlocksEnabled) {
+						if (activeModeTimeBlock) {
 							toast.show('Mode selection is locked by Auto schedule', 'lock');
 							return;
 						}
 						activeMode.set(mode);
-						updateSettings({ modeTimeBlocksEnabled: false });
 						modeDropdownOpen = false;
 					}}
 					style="padding: 0.4rem 0.85rem;"
 				>
 					<i class="fa-solid {getModeIcon(mode, $modeIcons)}" style="font-size: 0.8rem; opacity: 0.7;"></i>
 					<span class="mode-pill-label" style="font-size: 0.8rem;">{mode}</span>
-					{#if $settings.modeTimeBlocksEnabled}
+						{#if activeModeTimeBlock}
 						<i class="fa-solid fa-lock ms-auto" style="font-size: 0.65rem; opacity: 0.3;"></i>
 					{/if}
 				</button>
@@ -113,7 +116,7 @@
 				</a>
 				<button class="today-settings-item logout" type="button" onclick={() => goto('/')}>
 					<i class="fa-solid fa-right-from-bracket"></i>
-					<span>Logout</span>
+					<span>Home</span>
 				</button>
 			</div>
 		</details>
@@ -132,6 +135,7 @@
 
 	.today-subtle-selector-shell {
 		position: relative;
+		min-width: 0;
 		z-index: 101;
 	}
 
@@ -150,6 +154,7 @@
 
 	.today-subtle-mode-display {
 		display: flex;
+		max-width: 100%;
 		align-items: center;
 		gap: 0.6rem;
 		padding: 0.55rem 1.1rem;
@@ -162,6 +167,12 @@
 		transition: all 0.2s ease;
 		position: relative;
 		overflow: hidden;
+	}
+
+	.today-subtle-mode-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.today-subtle-mode-display:hover {

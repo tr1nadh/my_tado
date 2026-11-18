@@ -29,6 +29,7 @@ const defaultSettings = {
 		yellow: defaultTodayStarLimit
 	},
 	modeTimeBlocksEnabled: true,
+	todayRailPinned: false,
 	modeTimeBlocks: []
 };
 
@@ -174,6 +175,7 @@ export function getActiveModeTimeBlock(settingsValue, date = new Date()) {
 
 function normalizeSettings(value) {
 	return {
+		todayRailPinned: Boolean(value?.todayRailPinned),
 		useUnifiedTodayStarLimit:
 			value?.useUnifiedTodayStarLimit === undefined
 				? defaultSettings.useUnifiedTodayStarLimit
@@ -411,6 +413,17 @@ export function initTasks() {
 	}
 }
 
+export function resetAppData() {
+	// Save an explicit empty list so first-run sample actions stay cleared.
+	tasks.set([]);
+	modes.set(defaultModes);
+	modeIcons.set({});
+	settings.set(defaultSettings);
+	activeMode.set('All Modes');
+	hoveredTaskId.set(null);
+	draggedTask.set({ id: null, targetId: null, placement: 'before' });
+}
+
 export function updateSettings(patch) {
 	const nextSettings = normalizeSettings({ ...get(settings), ...patch });
 	settings.set(nextSettings);
@@ -447,6 +460,17 @@ export function renameMode(oldName, nextName) {
 
 	modes.set(existingModes.map((mode) => (mode === oldName ? trimmedName : mode)));
 	tasks.update((list) => list.map((task) => (task.mode === oldName ? normalizeTask({ ...task, mode: trimmedName }) : task)));
+	settings.update((value) => normalizeSettings({ ...value,
+		modeTimeBlocks: (value.modeTimeBlocks || []).map((block) => block.mode === oldName ? { ...block, mode: trimmedName } : block)
+	}));
+	modeIcons.update((icons) => {
+		const next = { ...icons };
+		if (oldName !== trimmedName && Object.hasOwn(next, oldName)) {
+			next[trimmedName] = next[oldName];
+			delete next[oldName];
+		}
+		return next;
+	});
 
 	if (get(activeMode) === oldName) {
 		activeMode.set(trimmedName);
@@ -463,6 +487,14 @@ export function deleteMode(modeToDelete) {
 	if (existingModes.filter((mode) => mode !== 'All Modes').length <= 1) return false;
 
 	const nextModes = existingModes.filter((mode) => mode !== modeToDelete);
+	settings.update((value) => normalizeSettings({ ...value,
+		modeTimeBlocks: (value.modeTimeBlocks || []).filter((block) => block.mode !== modeToDelete)
+	}));
+	modeIcons.update((icons) => {
+		const next = { ...icons };
+		delete next[modeToDelete];
+		return next;
+	});
 
 	modes.set(nextModes);
 	tasks.update((list) =>

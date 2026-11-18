@@ -20,7 +20,7 @@
 	--text: #E7E5E4;
 	--text-light: #FFFFFF;
 	--muted: #A8A29E;
-	--soft-text: #8C8681;
+	--soft-text: #A8A29E;
 
 	/* Accents */
 	--blue: #F59E0B; /* Saffron */
@@ -45,6 +45,17 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, 'Manrope', sans-serif;
+}
+
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--cyan);
+	outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+	input.form-control, textarea.form-control, select.form-select {
+		font-size: 16px;
+	}
 }
 
 body {
@@ -1391,8 +1402,13 @@ body {
 
 .task-list {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 0.35rem;
 	padding: 0.35rem 0.15rem;
+}
+
+.min-w-0 {
+	min-width: 0;
 }
 
 .rounded-4 {
@@ -1509,6 +1525,7 @@ body {
 
 .task-title {
 	font-size: 0.98rem;
+	overflow-wrap: anywhere;
 	font-weight: 450;
 	letter-spacing: 0.01em;
 	font-family: 'Manrope', sans-serif;
@@ -3093,6 +3110,9 @@ body.karya-offcanvas-open {
 
 .pause-modal {
 	width: min(100%, 32rem);
+	max-height: calc(100dvh - 2rem);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	padding: 1.1rem;
 	border-radius: 1rem;
 	border: 1px solid rgba(180, 83, 9, 0.2);
@@ -3299,6 +3319,10 @@ body.karya-offcanvas-open {
 
 	.actions-panel-shell {
 		flex-direction: column;
+	}
+
+	.actions-panel-shell > .actions-main-column {
+		width: 100%;
 	}
 
 	/* Keep the mode schedule as an off-canvas drawer on smaller screens. */
@@ -3757,7 +3781,7 @@ body.karya-offcanvas-open {
 }
 
 .fade-up {
-	animation: floatUp 550ms ease both;
+	animation: floatUp 550ms ease backwards;
 }
 
 .pulse-glow {

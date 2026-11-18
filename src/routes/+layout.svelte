@@ -12,6 +12,9 @@
 	} from '$lib/desktopUpdater';
 	import {
 		activeMode,
+		createMode,
+		deleteMode,
+		moveModeToIndex,
 		getActiveModeTimeBlock,
 		getModeIcon,
 		initTasks,
@@ -54,7 +57,7 @@
 			if (!activeBlock) return;
 
 			const nextPath = navigation.to?.url?.pathname;
-			if (!nextPath || nextPath === '/today') return;
+			if (!nextPath || nextPath === '/today' || nextPath === '/settings') return;
 
 			navigation.cancel();
 
@@ -70,7 +73,7 @@
 
 			const activeBlock = getActiveModeTimeBlock($settings, new Date());
 			if (!activeBlock) return;
-			if (window.location.pathname === '/today') return;
+			if (['/today', '/settings'].includes(window.location.pathname)) return;
 			if (navRedirectInFlight) return;
 
 			const now = Date.now();
